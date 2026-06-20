@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/Wolf258/mekami-cli/internal/config"
-	"github.com/Wolf258/mekami-cli/internal/testutil"
+	"github.com/Wolf258/mekami-cli/internal/socktestutil"
 )
 
 func TestPIDFile_RoundTrip(t *testing.T) {
@@ -87,7 +87,7 @@ func TestEnsureStateDir_CreatesWith700(t *testing.T) {
 	if err := EnsureStateDir(dir); err != nil {
 		t.Fatal(err)
 	}
-	testutil.AssertSecureDirPerms(t, StatePath(dir))
+	socktestutil.AssertSecureDirPerms(t, StatePath(dir))
 }
 
 func TestIPC_ClientServerPing(t *testing.T) {

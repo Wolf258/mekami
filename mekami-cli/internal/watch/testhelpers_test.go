@@ -9,7 +9,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"github.com/Wolf258/mekami-cli/internal/config"
-	"github.com/Wolf258/mekami-cli/internal/testutil"
+	"github.com/Wolf258/mekami-cli/internal/socktestutil"
 )
 
 // fsnotifyEvent is a tiny test shim so the Translate test does not
@@ -110,12 +110,12 @@ func neverStop() <-chan struct{} {
 	return make(chan struct{})
 }
 
-// shortSockDir delegates to testutil so the package-local tests
-// can keep their short call sites. See testutil.ShortSockDir for
+// shortSockDir delegates to socktestutil so the package-local tests
+// can keep their short call sites. See socktestutil.ShortSockDir for
 // the full rationale (macOS sun_path limit).
 func shortSockDir(t *testing.T) string {
 	t.Helper()
-	return testutil.ShortSockDir(t)
+	return socktestutil.ShortSockDir(t)
 }
 
 // requireIPC skips the test when the current Go build does
@@ -125,5 +125,5 @@ func shortSockDir(t *testing.T) string {
 // package compiled in.
 func requireIPC(t *testing.T) {
 	t.Helper()
-	testutil.SkipIfNoNamedPipe(t)
+	socktestutil.SkipIfNoNamedPipe(t)
 }

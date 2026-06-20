@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Wolf258/mekami-cli/internal/testutil"
+	"github.com/Wolf258/mekami-cli/internal/socktestutil"
 )
 
 // requireIPC skips the test when the current Go build does
@@ -16,7 +16,7 @@ import (
 // close immediately.
 func requireIPC(t *testing.T) {
 	t.Helper()
-	testutil.SkipIfNoNamedPipe(t)
+	socktestutil.SkipIfNoNamedPipe(t)
 }
 
 // filepathJoinTemp returns a path inside t.TempDir(). It's a
@@ -39,10 +39,10 @@ func writeFile(path, content string) (int, error) {
 	return len(content), os.WriteFile(path, []byte(content), 0o644)
 }
 
-// shortSockDir delegates to testutil so the package-local tests
-// can keep their short call sites. See testutil.ShortSockDir for
+// shortSockDir delegates to socktestutil so the package-local tests
+// can keep their short call sites. See socktestutil.ShortSockDir for
 // the full rationale (macOS sun_path limit).
 func shortSockDir(t *testing.T) string {
 	t.Helper()
-	return testutil.ShortSockDir(t)
+	return socktestutil.ShortSockDir(t)
 }

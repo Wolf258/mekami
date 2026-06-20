@@ -8,7 +8,7 @@
 # To bump pkgver for a new release:
 #   1. Tag upstream with `v<version>` and push the tag.
 #   2. Run the release workflow so the tarballs land under
-#      https://github.com/mekami/mekami/releases/tag/v<version>
+#      https://github.com/Wolf258/Mekami/releases/tag/v<version>
 #   3. Update `pkgver` and the per-arch sha256sums below.
 #   4. Regenerate .SRCINFO with `makepkg --printsrcinfo > .SRCINFO`.
 #
@@ -24,13 +24,13 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="SQLite-backed Go code graph for LLM agents (prebuilt binary)"
 arch=('x86_64' 'aarch64')
-url="https://github.com/mekami/mekami"
+url="https://github.com/Wolf258/Mekami"
 license=('MIT')
 provides=('mekami')
 conflicts=('mekami')
 
-source_x86_64=("https://github.com/mekami/mekami/releases/download/v${pkgver}/mekami_${pkgver}_linux_x86_64.tar.gz")
-source_aarch64=("https://github.com/mekami/mekami/releases/download/v${pkgver}/mekami_${pkgver}_linux_aarch64.tar.gz")
+source_x86_64=("https://github.com/Wolf258/Mekami/releases/download/v${pkgver}/mekami_${pkgver}_linux_x86_64.tar.gz")
+source_aarch64=("https://github.com/Wolf258/Mekami/releases/download/v${pkgver}/mekami_${pkgver}_linux_aarch64.tar.gz")
 
 # Filled in on each release. The values shown are placeholders; a real
 # PKGBUILD bump replaces them with the sha256 of the uploaded tarball.

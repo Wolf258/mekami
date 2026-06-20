@@ -18,11 +18,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
-          # Cache both modules' go.sum so the workspace build
-          # doesn't go cold when only one of them changed.
-          cache-dependency-path: |
-            mekami-cli/go.sum
-            mekami-core/go.sum
+          # Cache the workspace module's go.sum so the build
+          # doesn't go cold when only source files changed.
+          cache-dependency-path: mekami-cli/go.sum
       # Run from the repo root so the committed go.work is in
       # scope. The whole codebase now lives in a single module
       # (mekami-cli), with mekami-core fused in as internal/core

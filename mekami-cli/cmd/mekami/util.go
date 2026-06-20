@@ -13,7 +13,6 @@ import (
 
 	"github.com/Wolf258/mekami-cli/internal/config"
 	"github.com/Wolf258/mekami-cli/internal/format"
-	"github.com/Wolf258/mekami-cli/internal/core/store"
 	"github.com/Wolf258/mekami-cli/internal/naming"
 	"github.com/Wolf258/mekami-cli/internal/supervisor"
 )
@@ -321,7 +320,3 @@ func confirm(prompt string) bool {
 	c := line[0]
 	return c == 'y' || c == 'Y'
 }
-
-// _ keeps store in the import set even if every callsite moves
-// to a different package.
-var _ = store.ErrNoLastRoot

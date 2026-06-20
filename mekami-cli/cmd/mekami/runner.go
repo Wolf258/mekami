@@ -284,13 +284,6 @@ func dispatchRead(ctx context.Context, s *store.Store, name string, args naming.
 	return nil, fmt.Errorf("unknown read command %q", name)
 }
 
-func firstOrEmpty(s []string, i int) string {
-	if i < len(s) {
-		return s[i]
-	}
-	return ""
-}
-
 // cliError is the error type cobra prints to stderr and exits
 // with the given code. The codes follow the BSD conventions:
 //
@@ -304,7 +297,3 @@ type cliError struct {
 }
 
 func (e cliError) Error() string { return e.msg }
-
-// _ keeps the import set in sync if a future refactor drops one
-// of the helpers above.
-var _ = openStore

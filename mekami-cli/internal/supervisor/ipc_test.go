@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wolf258/mekami-cli/internal/testutil"
+	"github.com/Wolf258/mekami-cli/internal/socktestutil"
 )
 
 // stubHandler is a minimal Handler used by IPC tests. It records
@@ -195,7 +195,7 @@ func TestStateDir_Permissions(t *testing.T) {
 	if err := EnsureStateDir(); err != nil {
 		t.Fatal(err)
 	}
-	testutil.AssertSecureDirPerms(t, StateDir())
+	socktestutil.AssertSecureDirPerms(t, StateDir())
 }
 
 // EnsureStartPayloadJSONIsStable guards against accidental field

@@ -1,7 +1,9 @@
-// Package testutil holds helpers shared by tests across packages.
-// Importing from a non-_test file is intentional: black-box tests
-// (mekami-cli/tests/...) import it the same way production code does.
-package testutil
+// Package socktestutil holds helpers shared by tests that bind
+// Unix domain sockets or Windows named pipes. Importing from a
+// non-_test file is intentional: black-box tests
+// (mekami-cli/tests/...) import it the same way production code
+// does.
+package socktestutil
 
 import (
 	"net"

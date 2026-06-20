@@ -14,28 +14,17 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/Wolf258/mekami-cli/internal/format"
 	"github.com/Wolf258/mekami-cli/internal/core/diff"
 	"github.com/Wolf258/mekami-cli/internal/core/grep"
-	"github.com/Wolf258/mekami-cli/internal/core/model"
 	"github.com/Wolf258/mekami-cli/internal/core/path"
 	"github.com/Wolf258/mekami-cli/internal/core/queries"
 	"github.com/Wolf258/mekami-cli/internal/core/store"
 	"github.com/Wolf258/mekami-cli/internal/naming"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
-
-// Storer is the read interface handlers need from the graph store.
-// The concrete *store.Store satisfies it; tests can inject a stub.
-type Storer interface {
-	DB() interface {
-		QueryContext(ctx context.Context, q string, args ...any) (rows interface{ Next() bool }, err error)
-	}
-	Close() error
-}
 
 // ToolResult wraps v in an MCP text-content result. Mirrors the
 // helper that used to live in internal/mcp.
@@ -68,11 +57,12 @@ func FindSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, e
 	return queries.SearchSymbols(ctx, s, q, kind, prefix, limit)
 }
 
-// GetSymbol returns a symbol's source. body/header flags drive the
-// output mode; with both false (the default) it returns header+body
-// via format.Symbol. With body=true, returns just the numbered body
-// via format.SymbolBody. With header=true, returns just the header
-// lines (the lines format.Symbol prints).
+// GetSymbol returns a symbol's source. With body=false (the default)
+// it returns the header block. With body=true it returns the
+// numbered body. Callers that want header+body should use the CLI
+// `show` command, which composes them client-side; the MCP tool
+// keeps the header-only default to match the historical get_symbol
+// shape.
 func GetSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
 	qn := args.GetString("qualified_name", "")
 	syms, err := queries.SymbolByQName(ctx, s, qn)
@@ -82,36 +72,20 @@ func GetSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 	if len(syms) == 0 {
 		return fmt.Sprintf("no symbol found for %q", qn), nil
 	}
-	header := args.GetBool("header", false)
 	body := args.GetBool("body", false)
 	maxLines := args.GetInt("max_lines", 200)
-	switch {
-	case header && !body:
-		// Just the header block (qualified name + file:line +
-		// optional signature).
-		return format.Symbol(syms), nil
-	case body && !header:
-		// Numbered body, with max_lines cap. Use the first matching
-		// symbol (qualified names are unique per definition).
-		sym := syms[0]
-		lines, err := queries.SourceSlice(ctx, s, sym.FilePath, sym.StartLine, sym.EndLine, maxLines)
-		if err != nil {
-			return nil, err
-		}
-		return format.SymbolBody(sym, lines, maxLines), nil
-	default:
-		// Default (no flags) = header + body in the same shape as
-		// format.Symbol + a body block underneath. Keep the
-		// historical `get_symbol` shape: header only on the MCP
-		// side, so callers that want the body use show_body.
-		//
-		// We match the previous behavior: the MCP `get_symbol`
-		// returns header; the CLI `show` returns header+body when
-		// no body/header flag is set. The CLI distinguishes via
-		// the caller's request, so we accept both shapes here and
-		// let the caller override. For MCP we just return header.
+	if !body {
+		// Default and header-only path: the header block.
 		return format.Symbol(syms), nil
 	}
+	// body=true: numbered body, with max_lines cap. Use the first
+	// matching symbol (qualified names are unique per definition).
+	sym := syms[0]
+	lines, err := queries.SourceSlice(ctx, s, sym.FilePath, sym.StartLine, sym.EndLine, maxLines)
+	if err != nil {
+		return nil, err
+	}
+	return format.SymbolBody(sym, lines, maxLines), nil
 }
 
 // ShowBody returns just the numbered body.
@@ -444,11 +418,3 @@ func IndexStatus(ctx context.Context, s *store.Store, _ naming.ArgMap) (any, err
 	}
 	return st, nil
 }
-
-// _ keeps the strconv import in the import set even if a future
-// refactor drops every callsite that uses it.
-var _ = strconv.Itoa
-
-// _ keeps the model import in the import set; the package is used
-// transitively by queries and path.
-var _ = model.SymbolWithFile{}
