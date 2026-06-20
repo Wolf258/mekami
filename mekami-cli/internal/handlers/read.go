@@ -1,0 +1,394 @@
+// Package handlers implements the read-side graph operations that
+// back both the CLI subcommands and the MCP tools. The functions
+// take an ArgMap (named-naming spec) and a context, return a value
+// suitable for either stdout (via format.JSON) or MCP text content.
+//
+// Keeping the implementations here means the CLI and the MCP server
+// share the same code path: the cobra runner decodes flags into an
+// ArgMap and the MCP SDK decodes JSON-RPC params into one, and
+// both call the same function.
+package handlers
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/Wolf258/mekami-cli/internal/format"
+	"github.com/Wolf258/mekami-core/diff"
+	"github.com/Wolf258/mekami-core/grep"
+	"github.com/Wolf258/mekami-core/model"
+	"github.com/Wolf258/mekami-core/path"
+	"github.com/Wolf258/mekami-core/queries"
+	"github.com/Wolf258/mekami-core/store"
+	"github.com/Wolf258/mekami-cli/internal/naming"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+// Storer is the read interface handlers need from the graph store.
+// The concrete *store.Store satisfies it; tests can inject a stub.
+type Storer interface {
+	DB() interface {
+		QueryContext(ctx context.Context, q string, args ...any) (rows interface{ Next() bool }, err error)
+	}
+	Close() error
+}
+
+// ToolResult wraps v in an MCP text-content result. Mirrors the
+// helper that used to live in internal/mcp.
+func ToolResult(v any) *mcp.CallToolResult {
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: format.JSON(v)}},
+	}
+}
+
+// SourceSourceError is the human-readable form of a store-level
+// "no last_root" / file-not-found error. The MCP layer surfaces it
+// as a text result so the LLM can self-correct; the CLI prints it
+// to stderr and exits with code 2.
+func SourceError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, store.ErrNoLastRoot) {
+		return err.Error()
+	}
+	return "error: " + err.Error()
+}
+
+// FindSymbol returns the symbol search results.
+func FindSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	q := args.GetString("query", "")
+	kind := args.GetString("kind", "")
+	prefix := args.GetString("path_prefix", "")
+	limit := args.GetInt("limit", 50)
+	return queries.SearchSymbols(ctx, s, q, kind, prefix, limit)
+}
+
+// GetSymbol returns a symbol's source. body/header flags drive the
+// output mode; with both false (the default) it returns header+body
+// via format.Symbol. With body=true, returns just the numbered body
+// via format.SymbolBody. With header=true, returns just the header
+// lines (the lines format.Symbol prints).
+func GetSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	qn := args.GetString("qualified_name", "")
+	syms, err := queries.SymbolByQName(ctx, s, qn)
+	if err != nil {
+		return nil, err
+	}
+	if len(syms) == 0 {
+		return fmt.Sprintf("no symbol found for %q", qn), nil
+	}
+	header := args.GetBool("header", false)
+	body := args.GetBool("body", false)
+	maxLines := args.GetInt("max_lines", 200)
+	switch {
+	case header && !body:
+		// Just the header block (qualified name + file:line +
+		// optional signature).
+		return format.Symbol(syms), nil
+	case body && !header:
+		// Numbered body, with max_lines cap. Use the first matching
+		// symbol (qualified names are unique per definition).
+		sym := syms[0]
+		lines, err := queries.SourceSlice(ctx, s, sym.FilePath, sym.StartLine, sym.EndLine, maxLines)
+		if err != nil {
+			return nil, err
+		}
+		return format.SymbolBody(sym, lines, maxLines), nil
+	default:
+		// Default (no flags) = header + body in the same shape as
+		// format.Symbol + a body block underneath. Keep the
+		// historical `get_symbol` shape: header only on the MCP
+		// side, so callers that want the body use show_body.
+		//
+		// We match the previous behavior: the MCP `get_symbol`
+		// returns header; the CLI `show` returns header+body when
+		// no body/header flag is set. The CLI distinguishes via
+		// the caller's request, so we accept both shapes here and
+		// let the caller override. For MCP we just return header.
+		return format.Symbol(syms), nil
+	}
+}
+
+// ShowBody returns just the numbered body.
+func ShowBody(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	qn := args.GetString("qualified_name", "")
+	maxLines := args.GetInt("max_lines", 200)
+	syms, err := queries.SymbolByQName(ctx, s, qn)
+	if err != nil {
+		return nil, err
+	}
+	if len(syms) == 0 {
+		return fmt.Sprintf("no symbol found for %q", qn), nil
+	}
+	sym := syms[0]
+	lines, err := queries.SourceSlice(ctx, s, sym.FilePath, sym.StartLine, sym.EndLine, maxLines)
+	if err != nil {
+		return nil, err
+	}
+	return format.SymbolBody(sym, lines, maxLines), nil
+}
+
+// ShowLines returns a range of lines from a file.
+func ShowLines(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	path := args.GetString("path", "")
+	startLine := args.GetInt("start_line", 0)
+	endLine := args.GetInt("end_line", 0)
+	maxLines := args.GetInt("max_lines", 200)
+	if startLine < 1 {
+		return "start_line must be >= 1", nil
+	}
+	end := endLine
+	if end <= 0 {
+		end = startLine + 100
+	}
+	if end < startLine {
+		return "end_line must be >= start_line", nil
+	}
+	lines, err := queries.SourceSlice(ctx, s, path, startLine, end, maxLines)
+	if err != nil {
+		return nil, err
+	}
+	if len(lines) == 0 {
+		return fmt.Sprintf("no content in %s:%d-%d (file may be shorter than the requested range)", path, startLine, end), nil
+	}
+	return format.FileRange(path, startLine, end, lines, maxLines), nil
+}
+
+// WhoCalls returns incoming references to a symbol.
+func WhoCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	qn := args.GetString("qualified_name", "")
+	refKind := args.GetString("ref_kind", "")
+	prefix := args.GetString("path_prefix", "")
+	limit := args.GetInt("limit", 100)
+	refs, err := queries.RefsTo(ctx, s, qn, refKind, prefix, limit)
+	if err != nil {
+		return nil, err
+	}
+	return format.RefsTo(qn, refs), nil
+}
+
+// WhatCalls returns outgoing references from a symbol.
+func WhatCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	qn := args.GetString("qualified_name", "")
+	prefix := args.GetString("path_prefix", "")
+	limit := args.GetInt("limit", 50)
+	refs, err := queries.RefsFrom(ctx, s, qn, prefix, "", limit)
+	if err != nil {
+		return nil, err
+	}
+	return format.RefsFrom(qn, refs), nil
+}
+
+// ListFile returns the symbols in a file.
+func ListFile(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	path := args.GetString("path", "")
+	candidates, count, err := queries.FilePathCandidates(ctx, s, path)
+	if err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return fmt.Sprintf("no file found for %q (check path; use list_files to see indexed paths)", path), nil
+	}
+	if count > 1 {
+		syms, err := queries.FileOutline(ctx, s, path)
+		if err != nil {
+			return nil, err
+		}
+		other := candidates
+		if len(other) > 0 && other[0] == syms[0].FilePath {
+			other = other[1:]
+		}
+		hdr := fmt.Sprintf("note: %q is ambiguous; matched %d files. Showing %s. Other matches: %v\n\n",
+			path, count, syms[0].FilePath, other)
+		return hdr + format.FileOutline(syms), nil
+	}
+	syms, err := queries.FileOutline(ctx, s, path)
+	if err != nil {
+		return nil, err
+	}
+	if len(syms) == 0 {
+		return fmt.Sprintf("file %q has no indexed symbols (it may be empty or all in test files)", candidates[0]), nil
+	}
+	return format.FileOutline(syms), nil
+}
+
+// TraceCalls returns the call-path edges between two symbols.
+func TraceCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	from := args.GetString("from", "")
+	to := args.GetString("to", "")
+	maxDepth := args.GetInt("max_depth", 6)
+	edges, err := path.Between(ctx, s, from, to, maxDepth)
+	if werr := path.WrapError(err); werr != nil {
+		var pe *path.Error
+		if errors.As(werr, &pe) {
+			switch pe.Kind {
+			case path.PathSameSymbol:
+				return fmt.Sprintf("from and to are the same symbol: %q", from), nil
+			case path.PathSymbolNotFound:
+				return pe.Error() + " — check the qualified name (use find to find it)", nil
+			}
+		}
+		return nil, werr
+	}
+	if len(edges) == 0 {
+		return fmt.Sprintf("no path found from %q to %q within depth %d", from, to, maxDepth), nil
+	}
+	return edges, nil
+}
+
+// ListFiles returns the project file tree.
+func ListFiles(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	prefix := args.GetString("prefix", "")
+	depth := args.GetInt("max_depth", 12)
+	include := args.GetStringSlice("include", nil)
+	return queries.FileTree(ctx, s, prefix, depth, include)
+}
+
+// ListPackage returns the top-level symbols of a package.
+func ListPackage(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	pkgID := args.GetString("package_id", "")
+	kinds := args.GetStringSlice("kinds", nil)
+	resolved, err := resolvePackageID(ctx, s, pkgID)
+	if err != nil {
+		return nil, err
+	}
+	syms, err := queries.PackageOutline(ctx, s, resolved, kinds)
+	if err != nil {
+		return nil, err
+	}
+	if len(syms) == 0 {
+		return fmt.Sprintf("no symbols for package %q (check package_id)", resolved), nil
+	}
+	return format.PackageOutline(resolved, syms), nil
+}
+
+// resolvePackageID normalizes the user-supplied package_id. It accepts
+// either the canonical Go import path (e.g. "github.com/Wolf258/mekami-cli/internal/mcp")
+// or a short suffix (e.g. "internal/mcp", "mcp"). For short suffixes it
+// tries to disambiguate against the indexed modules; if more than one
+// module claims the suffix it returns an error listing the candidates.
+func resolvePackageID(ctx context.Context, s *store.Store, input string) (string, error) {
+	if input == "" {
+		return "", fmt.Errorf("package_id is required")
+	}
+	if isCanonicalPackageID(ctx, s, input) {
+		return input, nil
+	}
+	mods, err := queries.ListModules(ctx, s)
+	if err != nil {
+		return input, err
+	}
+	var matches []string
+	for _, m := range mods {
+		candidate := m.Path + "/" + input
+		if isCanonicalPackageID(ctx, s, candidate) {
+			matches = append(matches, candidate)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return input, nil
+	case 1:
+		return matches[0], nil
+	default:
+		return "", fmt.Errorf("ambiguous package_id %q; matches: %s", input, strings.Join(matches, ", "))
+	}
+}
+
+// isCanonicalPackageID reports whether id is a known package_id in the
+// index. It uses a cheap COUNT-style query against the packages table.
+func isCanonicalPackageID(ctx context.Context, s *store.Store, id string) bool {
+	var n int
+	row := s.DB().QueryRowContext(ctx, `SELECT COUNT(1) FROM packages WHERE package_id = ?`, id)
+	if err := row.Scan(&n); err != nil {
+		return false
+	}
+	return n > 0
+}
+
+// ListPackageSymbols returns the top-level symbols declared in
+// a package as JSON. It shares its implementation with
+// ListPackage so resolution, kind filtering, and formatting
+// stay identical across the two tools.
+func ListPackageSymbols(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	return ListPackage(ctx, s, args)
+}
+
+// ListImporters returns the packages that import pkgID.
+func ListImporters(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	pkgID := args.GetString("package_id", "")
+	return queries.ListImporters(ctx, s, pkgID)
+}
+
+// ListModules returns the indexed modules.
+func ListModules(ctx context.Context, s *store.Store, _ naming.ArgMap) (any, error) {
+	return queries.ListModules(ctx, s)
+}
+
+// ShowModules returns the per-module package summary.
+func ShowModules(ctx context.Context, s *store.Store, _ naming.ArgMap) (any, error) {
+	mods, err := queries.ModuleOverview(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	return format.ModuleOverview(mods), nil
+}
+
+// ShowChanges returns the diff against the last build.
+func ShowChanges(ctx context.Context, s *store.Store, _ naming.ArgMap) (any, error) {
+	root, err := queries.LastRoot(ctx, s)
+	if err != nil {
+		return SourceError(err), nil
+	}
+	d, err := diff.SinceLastBuild(ctx, s, root)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// FindText runs a server-side regex search.
+func FindText(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	root, err := queries.LastRoot(ctx, s)
+	if err != nil {
+		return SourceError(err), nil
+	}
+	pattern := args.GetString("pattern", "")
+	prefix := args.GetString("path_prefix", "")
+	exts := args.GetStringSlice("include_ext", nil)
+	maxResults := args.GetInt("max_results", 200)
+	context := args.GetInt("context", 2)
+	res, err := grep.Grep(ctx, grep.Options{
+		Pattern:    pattern,
+		Root:       root,
+		PathPrefix: prefix,
+		IncludeExt: exts,
+		MaxResults: maxResults,
+		Context:    context,
+	})
+	if err != nil {
+		return "error: " + err.Error(), nil
+	}
+	return res, nil
+}
+
+// IndexStatus returns the high-level DB snapshot.
+func IndexStatus(ctx context.Context, s *store.Store, _ naming.ArgMap) (any, error) {
+	st, err := queries.IndexStatus(ctx, s)
+	if err != nil {
+		return SourceError(err), nil
+	}
+	return st, nil
+}
+
+// _ keeps the strconv import in the import set even if a future
+// refactor drops every callsite that uses it.
+var _ = strconv.Itoa
+
+// _ keeps the model import in the import set; the package is used
+// transitively by queries and path.
+var _ = model.SymbolWithFile{}

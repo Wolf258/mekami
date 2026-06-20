@@ -1,0 +1,41 @@
+name: mekami
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - mekami-cli
+          - mekami-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      - name: Test ${{ matrix.module }}
+        working-directory: ${{ matrix.module }}
+        run: go test ./...
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: mekami-cli/go.sum
+      - name: Build
+        run: ./build.sh
+      - name: Build graph for self-hosting
+        run: ./mekami build
+      - name: MCP smoke test
+        run: ./mekami mcp-test

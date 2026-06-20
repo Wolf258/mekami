@@ -1,0 +1,16 @@
+pkgbase = mekami-bin
+	pkgdesc = SQLite-backed Go code graph for LLM agents (prebuilt binary)
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/mekami/mekami
+	arch = x86_64
+	arch = aarch64
+	license = MIT
+	provides = mekami
+	conflicts = mekami
+	source_x86_64 = https://github.com/mekami/mekami/releases/download/v0.1.0/mekami_0.1.0_linux_x86_64.tar.gz
+	sha256sums_x86_64 = SKIP
+	source_aarch64 = https://github.com/mekami/mekami/releases/download/v0.1.0/mekami_0.1.0_linux_aarch64.tar.gz
+	sha256sums_aarch64 = SKIP
+
+pkgname = mekami-bin

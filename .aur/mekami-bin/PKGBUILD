@@ -1,0 +1,71 @@
+# Maintainer: mekami <mekami@example.invalid>
+# PKGBUILD for the mekami-bin package on the AUR.
+#
+# Downloads a prebuilt mekami release tarball from the GitHub release
+# matching pkgver, places the binary in /usr/bin/mekami, and ships the
+# LICENSE file from the tarball (when present).
+#
+# To bump pkgver for a new release:
+#   1. Tag upstream with `v<version>` and push the tag.
+#   2. Run the release workflow so the tarballs land under
+#      https://github.com/mekami/mekami/releases/tag/v<version>
+#   3. Update `pkgver` and the per-arch sha256sums below.
+#   4. Regenerate .SRCINFO with `makepkg --printsrcinfo > .SRCINFO`.
+#
+# Expected release asset naming (must match what the release workflow
+# uploads):
+#   mekami_<pkgver>_linux_x86_64.tar.gz
+#   mekami_<pkgver>_linux_aarch64.tar.gz
+# Each tarball expands to a single `mekami` binary (and optionally a
+# LICENSE file).
+
+pkgname=mekami-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="SQLite-backed Go code graph for LLM agents (prebuilt binary)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/mekami/mekami"
+license=('MIT')
+provides=('mekami')
+conflicts=('mekami')
+
+source_x86_64=("https://github.com/mekami/mekami/releases/download/v${pkgver}/mekami_${pkgver}_linux_x86_64.tar.gz")
+source_aarch64=("https://github.com/mekami/mekami/releases/download/v${pkgver}/mekami_${pkgver}_linux_aarch64.tar.gz")
+
+# Filled in on each release. The values shown are placeholders; a real
+# PKGBUILD bump replaces them with the sha256 of the uploaded tarball.
+sha256sums_x86_64=('SKIP')
+sha256sums_aarch64=('SKIP')
+
+package() {
+	# `source_*` arrays above make CARCH-specific tarballs land in
+	# $srcdir. Pick the file that matches the current CARCH so the
+	# `ls | head -n1` ordering never matters (a real build only
+	# downloads the matching arch, but the explicit name defends
+	# against future source-array edits).
+	local tarball
+	tarball="$srcdir/mekami_${pkgver}_linux_${CARCH}.tar.gz"
+	if [ ! -f "$tarball" ]; then
+		# Fall back to a glob in case the upstream asset name
+		# ever drifts. The find -maxdepth 1 is the deterministic
+		# version of `ls | head -n1` and sorts the (single)
+		# match by name.
+		tarball=$(find "$srcdir" -maxdepth 1 -name '*.tar.gz' | head -n1)
+	fi
+
+	# Strip the leading directory if the tarball was packaged with
+	# one (e.g. `mekami-${pkgver}/mekami`). We cd into the tarball
+	# root and copy out whichever files exist.
+	local extracted="$srcdir/extracted"
+	mkdir -p "$extracted"
+	tar -xzf "$tarball" -C "$extracted"
+
+	install -Dm755 "$extracted/mekami" "$pkgdir/usr/bin/mekami"
+
+	# LICENSE is optional in the tarball; install it only when
+	# present so the package layout stays clean.
+	if [ -f "$extracted/LICENSE" ]; then
+		install -Dm644 "$extracted/LICENSE" \
+			"$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+	fi
+}

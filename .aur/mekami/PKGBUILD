@@ -1,0 +1,108 @@
+# Maintainer: mekami <mekami@example.invalid>
+# PKGBUILD for the mekami package on the AUR.
+#
+# Builds the mekami CLI from source on the user's machine. Requires
+# Go >= 1.26 at build time (the go package in [extra] is currently
+# well past that, but the requirement is documented for future-proofing).
+# If the user wants a prebuilt binary, they should install `mekami-bin`
+# instead.
+#
+# The repo is multi-module: `mekami-core` provides the indexer,
+# queries and SQLite store; `mekami-cli` is the cobra/MCP layer.
+# We pin both at the same tag (the CLI's release line) and stitch
+# them together with a go.work so `go build` resolves the replace
+# directives. The replace entries in mekami-cli/go.mod still point
+# at the local path, so the build works without a network round trip
+# to the module proxy.
+#
+# To bump pkgver: tag BOTH repos with `v<version>` and push the tags.
+# The PKGBUILD downloads them as separate sources. If you cut a
+# release under a single tag in the umbrella repo, adjust the
+# source lines accordingly.
+
+pkgname=mekami
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="SQLite-backed code graph for LLM agents, exposed over the Model Context Protocol"
+arch=('x86_64' 'aarch64')
+url="https://github.com/mekami/mekami"
+license=('MIT')
+depends=('glibc')
+makedepends=('go>=1.26' 'git')
+source=(
+	"git+https://github.com/mekami/mekami-cli.git#tag=v${pkgver}"
+	"git+https://github.com/mekami/mekami-core.git#tag=v${pkgver}"
+)
+sha256sums=('SKIP' 'SKIP')
+
+pkgver() {
+	# The pkgver() function only runs when the source is a git repo.
+	# In a multi-source setup PKGBUILD uses the literal pkgver above,
+	# but we still keep this for consistency with the umrella-repo
+	# flow. The CLI tag is the canonical version (core pins to the
+	# same tag).
+	echo "${pkgver}"
+}
+
+prepare() {
+	cd "$srcdir"
+	# Lay the two repos side by side at predictable paths. The
+	# `mekami` directory becomes the workspace root: the cli's
+	# `replace github.com/mekami/mekami-core => ../mekami-core`
+	# relative path resolves to the right place only if core sits at
+	# the right offset. We use `../mekami-core` against `mekami/`,
+	# so we drop core one level up.
+	mkdir -p mekami
+	mv mekami-cli/* mekami-cli/.* mekami/ 2>/dev/null || true
+	rmdir mekami-cli 2>/dev/null || true
+	mv mekami-core mekami-core-src
+	mv mekami-core-src mekami-core
+
+	# Generate a go.work that ties the two modules together. The
+	# `go.work` from upstream is not used (it points at the local
+	# development paths) so we write our own.
+	cat > mekami/go.work <<EOF
+go 1.26.3
+
+use (
+	./mekami-core
+	./mekami-cli
+)
+EOF
+}
+
+build() {
+	cd "$srcdir/mekami"
+
+	# Stamp the version into the binary. The variable path must match
+	# the one in build.sh in the upstream repo. If the install package
+	# ever moves the `version` variable, update this -ldflags
+	# expression in lockstep.
+	local ldflags="-X github.com/mekami/mekami-cli/internal/install.version=${pkgver}"
+
+	# CGO_ENABLED=0 keeps the binary fully static, matching the
+	# upstream build.sh behavior (modernc.org/sqlite is pure Go, so
+	# no C toolchain is required).
+	CGO_ENABLED=0 go build \
+		-ldflags "$ldflags" \
+		-trimpath \
+		-o mekami \
+		./mekami-cli
+}
+
+check() {
+	cd "$srcdir/mekami"
+	# Run the unit tests from both modules. The CLI exercises the
+	# cobra / MCP / watcher layers; the core exercises the indexer,
+	# queries, and SQLite store. Both pass on a clean checkout.
+	( cd mekami-core && go test ./... )
+	( cd mekami-cli && go test ./... )
+}
+
+package() {
+	cd "$srcdir/mekami"
+	install -Dm755 mekami "$pkgdir/usr/bin/mekami"
+	# No LICENSE file is shipped in the upstream repo yet. When one
+	# lands at the repo root, uncomment the line below to install it.
+	# install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
