@@ -27,7 +27,7 @@ const (
 	CmdRestart = "restart"
 	CmdQuit    = "quit"
 	// CmdQuitAll is the hard-stop signal used by
-	// `mekami service uninstall`. Unlike CmdQuit,
+	// `mekami service-uninstall`. Unlike CmdQuit,
 	// which only closes the IPC server, CmdQuitAll
 	// stops every registered daemon, then closes the
 	// server, and signals the watchdog to exit
@@ -523,7 +523,7 @@ func (c *Client) Quit(ctx context.Context) error {
 // decide between "carry on" and "abort uninstall". A
 // supervisor-not-running error means the system is
 // already in a clean state, which is the success case
-// for `mekami service uninstall`.
+// for `mekami service-uninstall`.
 func (c *Client) QuitAll(ctx context.Context) error {
 	resp, err := c.Call(ctx, Request{Cmd: CmdQuitAll})
 	if err != nil {

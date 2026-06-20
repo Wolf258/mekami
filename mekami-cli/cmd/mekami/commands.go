@@ -674,20 +674,14 @@ func runDaemon(name string, ctx context.Context, cmd *cobra.Command, _ []string)
 }
 
 // ─── Service (install/uninstall the supervisor) ────────────────
-
-func runService(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return cliError{code: 64, msg: "service requires a subcommand: install | uninstall"}
-	}
-	switch args[0] {
-	case "install":
-		return runServiceInstall()
-	case "uninstall":
-		return runServiceUninstall()
-	default:
-		return cliError{code: 64, msg: "service: unknown subcommand " + args[0]}
-	}
-}
+//
+// runServiceInstall / runServiceUninstall are the wrappers that the
+// cobra dispatch in runner.go calls. They are thin shims around the
+// per-platform serviceInstall / serviceUninstall functions defined
+// in service_linux.go / service_darwin.go / service_other.go; the
+// split exists so the platform-specific code (systemd unit writing,
+// launchctl plist writing) can live in build-tag-gated files
+// without dragging the cobra plumbing along with it.
 
 func runServiceInstall() error {
 	return serviceInstall()
@@ -986,7 +980,7 @@ func runSupervisorMain(ctx context.Context) error {
 // units (which only restart the *supervisor* if the
 // supervisor exits; they do nothing for a wedged supervisor
 // that is alive but unresponsive). On platforms where
-// service install is not implemented, the watchdog is the
+// service-install is not implemented, the watchdog is the
 // only safety net.
 //
 // The watchdog itself is also short-lived: it exits when
@@ -1048,7 +1042,7 @@ func startWatchdogProcess() error {
 // is to:
 //   - write the watchdog's PID to
 //     $XDG_CONFIG_HOME/mekami/supervisor/watchdog.pid
-//     so `service uninstall` can find us without
+//     so `service-uninstall` can find us without
 //     scanning the process table;
 //   - install a SIGTERM handler that cancels ctx
 //     (the supervisor does not propagate signals to
@@ -1058,13 +1052,13 @@ func startWatchdogProcess() error {
 //     and the canonical state directory.
 //
 // On exit, the watchdog's PID file is removed so a
-// future `service uninstall` does not signal a stale
+// future `service-uninstall` does not signal a stale
 // PID. The sentinel file (if any) is left alone: the
 // supervisor clears it on the next startup.
 //
 // The watchdog exits when:
 //   - the stop sentinel is observed (set by
-//     `service uninstall` via HandleQuitAll);
+//     `service-uninstall` via HandleQuitAll);
 //   - the supervisor's PID disappears AND the socket
 //     is gone (clean shutdown: systemd will restart
 //     the supervisor, which will spawn a new
@@ -1073,7 +1067,7 @@ func startWatchdogProcess() error {
 //     re-spawned it (the new supervisor spawns its
 //     own watchdog); or
 //   - SIGTERM is delivered to the watchdog (e.g. the
-//     `service uninstall` flow signals the PID
+//     `service-uninstall` flow signals the PID
 //     directly as a fast path); or
 //   - ctx is cancelled (test only).
 func runWatchdogMain(ctx context.Context) error {
@@ -1088,7 +1082,7 @@ func runWatchdogMain(ctx context.Context) error {
 	// session (Setsid), so SIGTERM from the parent
 	// shell is not inherited; this handler is here
 	// for the explicit `pkill -TERM mekami` path
-	// (e.g. `service uninstall`'s fast path) and for
+	// (e.g. `service-uninstall`'s fast path) and for
 	// tests that cancel the watchdog via signal.
 	sigCtx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()

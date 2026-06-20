@@ -8,13 +8,12 @@
 //	mekami <graph read>     find, show, who-calls, what-calls, trace,
 //	                        list-*, show-*, find-text, index-status
 //	mekami <daemon>         start, stop, status, restart, reload, logs,
-//	                        service (with install/uninstall subcommands)
+//	                        service-install, service-uninstall
 //	mekami <mcp>            mcp-install, mcp-uninstall
 //	mekami mcp-test         smoke test the MCP server end-to-end
 //
-// Hidden internal entry points (also in naming.Specs): _daemon,
-// supervise (re-execed by the supervisor), service-install /
-// service-uninstall (called by `service` subcommands).
+// Hidden internal entry points (also in naming.Specs): _daemon and
+// supervise (re-execed by the supervisor).
 package mekami
 
 import (

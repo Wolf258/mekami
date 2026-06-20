@@ -31,8 +31,10 @@ func runCommand(spec *naming.Spec) func(*cobra.Command, []string) error {
 			return runStats(ctx, cmd)
 		case "start", "stop", "status", "restart", "reload", "logs":
 			return runDaemon(spec.Use, ctx, cmd, args)
-		case "service":
-			return runService(ctx, args)
+		case "service-install":
+			return runServiceInstall()
+		case "service-uninstall":
+			return runServiceUninstall()
 		case "mcp-install":
 			return runMCPInstall(ctx, args, flagVals(cmd, spec))
 		case "mcp-uninstall":
@@ -50,9 +52,8 @@ func runCommand(spec *naming.Spec) func(*cobra.Command, []string) error {
 }
 
 // hiddenRunner is a stub for the hidden commands (daemon entry
-// point, supervisor control, service-install/uninstall). Each
-// has its own RunE supplied by the relevant file. The cobra
-// spec only carries the metadata.
+// point, supervisor control). Each has its own RunE supplied by
+// the relevant file. The cobra spec only carries the metadata.
 func hiddenRunner(spec *naming.Spec) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		switch spec.Use {
@@ -60,10 +61,6 @@ func hiddenRunner(spec *naming.Spec) func(*cobra.Command, []string) error {
 			return runDaemonEntry(cmd)
 		case "supervise":
 			return runSupervise(cmd.Context(), args)
-		case "service-install":
-			return runServiceInstall()
-		case "service-uninstall":
-			return runServiceUninstall()
 		}
 		return fmt.Errorf("unhandled hidden command %q", spec.Use)
 	}

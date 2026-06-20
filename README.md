@@ -191,8 +191,8 @@ result on a no-hits query).
 | `mekami restart` | Stop + start. |
 | `mekami reload` | Re-read `.mekami/config.json`; hot-only changes are pushed, cold changes trigger restart. |
 | `mekami logs` | Tail the daemon log. |
-| `mekami service install` | Register the supervisor as a system service (systemd --user on Linux, LaunchAgent on macOS). |
-| `mekami service uninstall` | Tear the service down. |
+| `mekami service-install` | Register the supervisor as a system service (systemd --user on Linux, LaunchAgent on macOS). |
+| `mekami service-uninstall` | Tear the service down. |
 
 ### MCP integration
 
@@ -367,7 +367,7 @@ github.com/Wolf258/mekami-core         CLI / MCP / supervisor / daemon
 │   ├── coreinstall.go                `core-install` / `core-list`
 │   ├── mcptest.go                    `mekami mcp-test` smoke runner
 │   ├── util.go                       printJSON, supervisor helpers
-│   ├── service_*.go                  platform-specific service install
+│   ├── service_*.go                  platform-specific service-install
 │   └── dbpath.go                     --db flag plumbing
 ├── internal/
 │   ├── config/                       .mekami/config.json schema + Load
@@ -395,7 +395,7 @@ github.com/Wolf258/mekami-cli       CLI / MCP / supervisor / daemon
 │   ├── commands.go                lifecycle / daemon / mcp runners
 │   ├── mcptest.go                 `mekami mcp-test` smoke runner
 │   ├── util.go                    printJSON, supervisor helpers
-│   ├── service_*.go               platform-specific service install
+│   ├── service_*.go               platform-specific service-install
 │   └── dbpath.go                  --db flag plumbing
 ├── internal/
 │   ├── config/                    .mekami/config.json schema + Load
@@ -500,7 +500,7 @@ mekami restart                    # stop + start
 mekami reload                     # re-read .mekami/config.json
 ```
 
-`mekami service install` registers the supervisor as a system
+`mekami service-install` registers the supervisor as a system
 service (per-user, single instance) so it starts automatically
 when you log in and rehydrates every daemon from `daemons.json`:
 
@@ -606,7 +606,7 @@ The watchdog is best-effort:
   pair. The watchdog is not a replacement for the service
   install; it is a complement that catches the "wedged
   but alive" case the service manager cannot.
-- If you do not run `mekami service install`, the
+- If you do not run `mekami service-install`, the
   watchdog still works: it is launched automatically the
   first time any `mekami` command needs the supervisor.
   The watchdog is what keeps the supervisor alive across
@@ -617,7 +617,7 @@ You never invoke the watchdog directly. It is the hidden
 session (`setsid`) so it survives the parent shell
 exiting. On startup the watchdog writes its own PID to
 `$XDG_CONFIG_HOME/mekami/supervisor/watchdog.pid` and
-removes the file on exit, so `service uninstall` can find
+removes the file on exit, so `service-uninstall` can find
 and signal it without scanning the process table.
 
 The watchdog also watches for a **stop sentinel** at
@@ -625,7 +625,7 @@ The watchdog also watches for a **stop sentinel** at
 file is present, the watchdog exits on its next tick
 (immediately if the sentinel is already there on
 startup) regardless of supervisor state. The sentinel
-is what `service uninstall` uses to make the watchdog
+is what `service-uninstall` uses to make the watchdog
 exit deterministically rather than waiting for the
 next health-check tick to discover the supervisor is
 gone. The supervisor clears the sentinel on the next
@@ -673,8 +673,8 @@ even when no supervisor is around.
 
 ### Uninstalling the service
 
-`mekami service uninstall` is the symmetric counterpart
-to `service install`. On Linux and macOS it:
+`mekami service-uninstall` is the symmetric counterpart
+to `service-install`. On Linux and macOS it:
 
 1. Sends a `quit-all` IPC request to the running
    supervisor. The supervisor stops every registered
@@ -700,7 +700,7 @@ to `service install`. On Linux and macOS it:
 
 The per-project `.mekami/` directories and the
 `daemons.json` registry are **preserved**. A
-subsequent `mekami service install` will rehydrate
+subsequent `mekami service-install` will rehydrate
 the same set of daemons from the registry, so the
 user's intent ("watch these projects") survives the
 uninstall. The result is what we call a **hard
@@ -713,14 +713,14 @@ If you also want the registry and per-project state
 removed, the user can do it manually (`rm -rf
 $XD_CONFIG_HOME/mekami` and the `.mekami/`
 directories inside each project). Adding a
-`--purge` flag to `service uninstall` is a
+`--purge` flag to `service-uninstall` is a
 deliberate non-feature: deleting user data without
 an explicit, separate opt-in is too easy to do by
 accident.
 
 The watchdog is reachable via
 `$XDG_CONFIG_HOME/mekami/supervisor/watchdog.pid`,
-so `service uninstall` does not have to scan the
+so `service-uninstall` does not have to scan the
 process table to find it. If the PID file is
 missing (e.g. the user manually killed the
 watchdog) the uninstall falls through to the

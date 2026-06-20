@@ -15,7 +15,7 @@ import (
 // down now" signal and exits without waiting for the
 // next health-check tick.
 //
-// The sentinel is what makes `mekami service uninstall`
+// The sentinel is what makes `mekami service-uninstall`
 // fast: instead of waiting up to 5 seconds for the
 // watchdog to notice on its own that the supervisor is
 // gone, the uninstall flow writes the sentinel, sends
@@ -37,7 +37,7 @@ func SentinelPath() string {
 // WatchdogPIDPath returns the canonical path to the
 // watchdog's PID file. The watchdog writes its PID
 // here on startup and removes it on exit, so
-// `service uninstall` can find and signal the watchdog
+// `service-uninstall` can find and signal the watchdog
 // without scanning the process table.
 func WatchdogPIDPath() string {
 	return filepath.Join(StateDir(), "watchdog.pid")
@@ -115,7 +115,7 @@ func WriteWatchdogPID(pid int) error {
 // RemoveWatchdogPID removes the watchdog's PID file.
 // A missing file is not an error. Called on
 // shutdown so a stale PID from a previous run does
-// not confuse a future `service uninstall`.
+// not confuse a future `service-uninstall`.
 func RemoveWatchdogPID() error {
 	err := os.Remove(WatchdogPIDPath())
 	if err != nil && !os.IsNotExist(err) {

@@ -10,7 +10,7 @@ package naming
 //  1. Lifecycle: init, serve, build, stats.
 //  2. Graph reads: the symbol/ref/path/file queries (one Spec each,
 //     registered as top-level commands).
-//  3. Daemon: start/stop/status/restart/reload/logs + service install.
+//  3. Daemon: start/stop/status/restart/reload/logs + service-install / service-uninstall.
 //  4. MCP integration: mcp-install, mcp-uninstall.
 //  5. Hidden: internal re-exec entry points (_daemon, supervise _run).
 var Specs = []Spec{
@@ -361,14 +361,25 @@ ignore, log, fallback) are pushed to the live daemon; cold changes
 		Group: "daemon",
 	},
 	{
-		Use:   "service",
-		Short: "Manage the supervisor system-service registration",
-		Long: `Register or unregister the per-user supervisor with the host's
-init system so it starts automatically when you log in.
-
-  service install     write the systemd --user unit (Linux) or
-                      LaunchAgent plist (macOS).
-  service uninstall   tear the unit/agent down.`,
+		Use:   "service-install",
+		Short: "Register the supervisor with the host init system",
+		Long: `Register the per-user supervisor with the host's init system so
+it starts automatically when you log in. On Linux this writes and
+enables the systemd --user unit (~/.config/systemd/user/mekami-supervisor.service);
+on macOS it installs a LaunchAgent plist under ~/Library/LaunchAgents/.
+The supervisor is then started (best effort) so the unit is active
+right away.`,
+		Group: "daemon",
+	},
+	{
+		Use:   "service-uninstall",
+		Short: "Unregister the supervisor from the host init system",
+		Long: `Tear down what ` + "`service-install`" + ` set up. The supervisor
+is asked to stop every daemon cleanly via IPC, then the unit/agent
+is disabled (Linux: ` + "`systemctl --user disable --now`" + `, macOS:
+` + "`launchctl unload`" + `) and the unit/agent file is removed.
+Stale runtime state files (pid, socket, log, sentinel) are cleaned
+up so a future ` + "`service-install`" + ` starts from a clean slate.`,
 		Group: "daemon",
 	},
 
@@ -446,16 +457,6 @@ reported as missing.`,
 	},
 
 	// ───── 6. Hidden / internal ──────────────────────────────────
-	{
-		Use:    "service-install",
-		Short:  "Internal: register the supervisor (called by service install)",
-		Hidden: true,
-	},
-	{
-		Use:    "service-uninstall",
-		Short:  "Internal: unregister the supervisor (called by service uninstall)",
-		Hidden: true,
-	},
 	{
 		Use:    "_daemon",
 		Short:  "Internal watcher daemon entry point (do not invoke directly)",
