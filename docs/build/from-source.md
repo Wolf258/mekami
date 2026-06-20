@@ -28,7 +28,7 @@ The `-ldflags` expression that stamps the version into the binary lives in two p
 - `build.sh` (manual dev builds — produces `./mekami` in the repo root)
 - `.aur/mekami/PKGBUILD` (AUR from-source package)
 
-Both inline the expression rather than sharing a helper, so each is a self-contained script the AUR tooling can parse without our repo layout. The bootstrap installer (`scripts/install.sh`) was removed: AUR users install via `yay -S mekami-bin` (or `yay -S mekami`) and get the binary on PATH directly.
+Both inline the expression rather than sharing a helper, so each is a self-contained script the AUR tooling can parse without our repo layout.
 
 **If the install package ever moves the `version` variable, both files must be updated in lockstep.**
 
@@ -37,7 +37,7 @@ Both inline the expression rather than sharing a helper, so each is a self-conta
 If you want the bare build, you can do it by hand:
 
 ```bash
-( cd mekami-cli && go build -o ../mekami ./cmd/mekami )
+( cd mekami-cli && go build -o ../mekami . )
 ```
 
 You will be using the *production* `all_gen.go` (the file as it was last generated in the source tree), not the dev set. Use `./build.sh` when you have edited a core locally.

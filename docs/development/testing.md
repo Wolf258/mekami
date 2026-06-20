@@ -77,7 +77,7 @@ The build-tag form is the modern `//go:build` (Go 1.17+). We do not keep the leg
 | `mekami-cli/internal/config` | yes | — | Default, Load, Validate, OnStartAction, ShouldLog, Indexers. |
 | `mekami-cli/internal/coreinstall` | yes | — | SplitLangRef, IsValidLang, NormalizeVersion, HighestVersion, List, Gen. |
 | `mekami-cli/internal/handlers` | yes | — | Read handlers (show_body, show_changes, list_package, find_symbol, who_calls, trace_calls, find_text). |
-| `mekami-cli/internal/supervisor` | yes | — | supervisor state machine, watchdog, spawn, registry, ipc, inotify budget, adopt, sentinel. |
+| `mekami-cli/internal/supervisor` | yes | — | supervisor state machine, spawn, registry, ipc, inotify budget, adopt, sentinel. The watchdog lives in `internal/watch` and is exercised by the supervisor tests. |
 | `mekami-cli/internal/watch` | yes | yes (1) | Filter, Coalescer, Translate, poller, paths, plus a real fsnotify integration. |
 | `mekami-cli/tests/internal/install` | yes | — | Black-box MCP client registration. |
 | `mekami-cli/tests/cmd/mekami` | yes | — | Black-box smoke for the `mcp-test` truncation helper. |
@@ -102,10 +102,10 @@ These are the rules the suite follows; new tests should follow them too.
 Helpers that are reused across packages live in:
 
 - `mekami-cli/internal/core/testutil/helpers.go` (production package, not `_test.go`). Exposes `MustMkdir`, `MustWrite`, `WriteModuleFiles`, `OpenStoreForTest`, `QueriesStatsForTest`. Black-box tests import it the same way production code does.
-- `mekami-cli/internal/supervisor/testhelpers_test.go` and `mekami-cli/internal/watch/testhelpers_test.go` for package-local helpers (fsnotify shim, fake daemons, stub IPC servers, and a thin wrapper around `testutil.ShortSockDir` described below).
+- `mekami-cli/internal/supervisor/testhelpers_test.go` and `mekami-cli/internal/watch/testhelpers_test.go` for package-local helpers (fsnotify shim, fake daemons, stub IPC servers, and a thin wrapper around `socktestutil.ShortSockDir` described below).
 - `mekami-cli/internal/core/integration_test/bridge_test.go:buildTestGraph` is the canonical "build a graph from a Go source blob" helper used by most integration tests.
 
-Tests that bind a Unix socket must use `ShortSockDir(t)` from `mekami-cli/internal/testutil/sockdir.go` (re-exported as `shortSockDir(t)` from the per-package test helpers) instead of `t.TempDir()` as the parent of the socket path. On macOS the runtime temp dir lives under `/var/folders/.../T/<name><digits>/<digits>/`, and once you append `.mekami/watcher.sock` the full path exceeds the 104-byte `sun_path` limit and `bind()` returns `invalid argument`. The helper is a no-op on Linux/Windows (it just returns `t.TempDir()`) and on macOS parks the dir under `/tmp/ms-<short-name>-XXXX` with a name truncated to 16 chars so the resulting socket path stays well under the limit.
+Tests that bind a Unix socket must use `ShortSockDir(t)` from `mekami-cli/internal/socktestutil/sockdir.go` (re-exported as `shortSockDir(t)` from the per-package test helpers) instead of `t.TempDir()` as the parent of the socket path. On macOS the runtime temp dir lives under `/var/folders/.../T/<name><digits>/<digits>/`, and once you append `.mekami/watcher.sock` the full path exceeds the 104-byte `sun_path` limit and `bind()` returns `invalid argument`. The helper is a no-op on Linux/Windows (it just returns `t.TempDir()`) and on macOS parks the dir under `/tmp/ms-<short-name>-XXXX` with a name truncated to 16 chars so the resulting socket path stays well under the limit.
 
 There are three stubs of `api.Frontend` in the suite:
 

@@ -17,7 +17,7 @@ Mekami is **not** a code search engine. It indexes symbol names and reference ed
 - **Incremental indexing** — files are fingerprinted with `sha256`; unchanged files are skipped on rebuild.
 - **Parallel ingest** — parsing runs on `runtime.NumCPU()` workers; writes are serialized through a single SQLite transaction.
 - **Workspace-aware** — detects `go.work` and indexes every `use`d module from the workspace root, or just the current module when run from a sub-module.
-- **MCP server** — 17 tools over stdio covering symbol search, callers/callees, call-path BFS, file/package/module outlines, source ranges, filesystem text search, and an index snapshot.
+- **MCP server** — 17 tools over stdio covering symbol search, callers/callees, call-path tracing, file/package/module outlines, source ranges, filesystem text search, and an index snapshot.
 - **Unified vocabulary** — both CLI and MCP surfaces are declared in one place (`internal/naming.Specs`). Change a name once, change it on both sides.
 - **Watch mode** — `mekami start` re-indexes edited files in place via `fsnotify` (with a poller fallback on NFS/SMB/FUSE), debouncing, and structural-change detection that promotes `go.mod` / `go.work` / `go.sum` edits to a full rebuild. Managed by a per-user supervisor that handles restarts, config reloads, orphan adoption after crashes, and the global inotify watch budget across all your projects.
 - **Pure Go** — no CGo. Single static binary backed by `modernc.org/sqlite`.

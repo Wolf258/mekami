@@ -63,7 +63,7 @@ Every MCP tool is also a CLI command. The matching MCP tool is the snake_case fo
 | CLI command | MCP tool | Description |
 | --- | --- | --- |
 | `mekami find <q>` | `find_symbol` | Substring search over symbol names. |
-| `mekami show <qn>` | `get_symbol` | A symbol's definition. Use `--body` or `--header` to constrain the output. |
+| `mekami show <qn>` | `get_symbol` | A symbol's definition. Default returns the header; pass `--body` to get the numbered source body. |
 | `mekami show-body <qn>` | `show_body` | A symbol's source body (numbered lines). |
 | `mekami show-lines <path> <start> [end]` | `show_lines` | A range of lines from a file. |
 | `mekami who-calls <qn>` | `who_calls` | Incoming references (callers, type uses, value reads, embeds, imports). |

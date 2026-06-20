@@ -10,7 +10,7 @@ Inside a Go project, run:
 mekami init
 ```
 
-This creates a `.mekami/` directory with a default `config.json` and a `db.sqlite3` placeholder. The configuration is committed-by-convention; the database is per-user and should be added to `.gitignore`.
+This creates a `.mekami/` directory with a default `config.json` and a `graph.db` placeholder. The configuration is committed-by-convention; the database is per-user and should be added to `.gitignore`.
 
 If your project uses `go.work` and you want every `use`d module indexed as one graph, run from the workspace root. If you want only the current module indexed, run from inside the module directory — Mekami auto-detects both.
 
@@ -22,7 +22,7 @@ A one-shot build:
 mekami build
 ```
 
-The first build walks every Go file under the workspace, parses it with `go/parser`, and persists symbols, definitions, signatures, and reference edges into `.mekami/db.sqlite3`. Subsequent runs only re-ingest files whose content or import set has changed.
+The first build walks every Go file under the workspace, parses it with `go/parser`, and persists symbols, definitions, signatures, and reference edges into `.mekami/graph.db`. Subsequent runs only re-ingest files whose content or import set has changed.
 
 For large repos, the build is parallel across `runtime.NumCPU()` workers; writes are serialized through a single SQLite transaction.
 
@@ -38,14 +38,14 @@ mekami find Foo
 mekami who-calls Bar
 
 # What's the call path between A and B?
-mekami call-path A B
+mekami trace A B
 
 # Outlines
 mekami file-outline ./cmd/...
 mekami package-outline ./internal/foo
 ```
 
-All commands read from the same `.mekami/db.sqlite3` the build produced. The CLI renders results as human-readable text; the same calls over MCP return JSON.
+All commands read from the same `.mekami/graph.db` the build produced. The CLI renders results as human-readable text; the same calls over MCP return JSON.
 
 ## 4. Stay in sync with the daemon
 

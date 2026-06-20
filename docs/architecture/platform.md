@@ -45,5 +45,5 @@ with Go 1.26.
 
 ## Known platform quirks
 
-- **macOS socket path limit.** Unix sockets on macOS are limited to 104 bytes for `sun_path`. The `internal/testutil` package ships `ShortSockDir` so tests can use a shorter path.
+- **macOS socket path limit.** Unix sockets on macOS are limited to 104 bytes for `sun_path`. The `internal/socktestutil` package ships `ShortSockDir` so tests can use a shorter path.
 - **Windows service manager.** Windows is supported for the core CLI and the `serve` mode, but `service install` is not implemented. Run the supervisor from a scheduled task or manually.

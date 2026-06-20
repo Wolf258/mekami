@@ -54,45 +54,6 @@ extra:
 
 plugins:
   - search
-  - i18n:
-      docs_structure: suffix
-      languages:
-        - locale: en
-          name: English
-          build: true
-          default: true
-        - locale: es
-          name: Español
-          build: true
-          nav_translations:
-            Home: Inicio
-            Getting started: Empezando
-            Installation: Instalación
-            Quick start: Inicio rápido
-            User guide: Guía de uso
-            CLI reference: Referencia CLI
-            MCP tools: Herramientas MCP
-            Configuration: Configuración
-            Watch mode: Modo watch
-            How indexing works: Cómo funciona la indexación
-            Architecture: Arquitectura
-            Modules: Módulos
-            Platform support: Soporte de plataforma
-            Extending Mekami: Extender Mekami
-            Frontend contract: Contrato de frontend
-            Writing a frontend: Escribir un frontend
-            The all_gen mechanism: El mecanismo all_gen
-            Development: Desarrollo
-            Setup: Setup
-            Testing: Testing
-            Contributing: Contribuir
-            Releasing: Releases
-            Build & install: Build e instalación
-            From source: Desde código fuente
-            AUR packaging: Empaquetado AUR
-            API reference: Referencia de la API
-            Limitations: Limitaciones
-            License: Licencia
 
 markdown_extensions:
   - admonition

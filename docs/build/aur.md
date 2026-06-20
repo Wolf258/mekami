@@ -5,7 +5,7 @@ Mekami ships through the [AUR](https://aur.archlinux.org). The two packages targ
 | Package | Source | Who it's for |
 | --- | --- | --- |
 | `mekami-bin` | Prebuilt release tarball from GitHub Releases. | Arch users who do not want a Go toolchain. **Start here.** |
-| `mekami` | Builds the CLI from the upstream git tag. | Users who prefer to compile from source, or want the latest unreleased changes. Requires `go>=1.26`. |
+| `mekami` | Builds the CLI from the upstream git tag (single umbrella repo). | Users who prefer to compile from source, or want the latest unreleased changes. Requires `go>=1.26`. |
 
 The two packages conflict with each other and both `provide` `mekami`, so installing one automatically removes the other. This matches the usual AUR convention for `-bin` siblings.
 
@@ -23,13 +23,13 @@ Verify with `mekami --version`. The version is stamped at build time via `-ldfla
 
 The two PKGBUILDs intentionally use the same `pkgver` and the same upstream tag (`v<pkgver>`). The bump procedure:
 
-1. **Tag upstream.** From the repo root:
+1. **Tag upstream.** From the umbrella repo root:
     ```bash
     git tag v0.2.0
     git push origin v0.2.0
     ```
 
-2. **Upload release tarballs.** The release workflow should publish the assets with these exact names — the PKGBUILD downloads them by name, so any deviation breaks the build:
+2. **Upload release tarballs.** The release workflow should publish the assets with these exact names — the `mekami-bin` PKGBUILD downloads them by name, so any deviation breaks the build:
     ```text
     mekami_0.2.0_linux_x86_64.tar.gz
     mekami_0.2.0_linux_aarch64.tar.gz
@@ -47,7 +47,7 @@ The two PKGBUILDs intentionally use the same `pkgver` and the same upstream tag 
     - Replace the two `sha256sums_*` placeholders with the values from step 3.
 
 5. **Update `.aur/mekami/PKGBUILD`.**
-    - Bump `pkgver` to `0.2.0` (the `pkgver()` function will pick up the same value from the git tag at build time; the literal line is only used as a fallback for the `makepkg` UI).
+    - Bump `pkgver` to `0.2.0`. The PKGBUILD pulls a single source from the umbrella tag, so the version is the only field that needs to change.
 
 6. **Regenerate both `.SRCINFO` files.** `makepkg` requires this and the AUR will reject submissions with stale SRCINFO entries.
     ```bash
@@ -77,11 +77,11 @@ cd .aur/mekami     && makepkg -si    # from source, slower
 
 `makepkg` will report any missing dependencies, broken checksums, or syntax errors in the PKGBUILD itself.
 
-## Why does `build.sh` and the PKGBUILD share the same `-ldflags`?
+## Version stamping
 
-The `-ldflags` expression that stamps the version into the binary lives in two places:
+The `-ldflags` expression that stamps the version into the binary lives in two places, and they must be kept in lockstep:
 
 - `build.sh` (manual dev builds — produces `./mekami` in the repo root)
 - `.aur/mekami/PKGBUILD` (AUR from-source package)
 
-Both inline the expression rather than sharing a helper, so each is a self-contained script the AUR tooling can parse without our repo layout. The bootstrap installer (`scripts/install.sh`) was removed: AUR users install via `yay -S mekami-bin` (or `yay -S mekami`) and get the binary on PATH directly. **If the install package ever moves the `version` variable, both files must be updated in lockstep.**
+Both inline the expression rather than sharing a helper so each file is self-contained and the AUR tooling can parse it without our repo layout. **If the install package ever moves the `version` variable, both files must be updated in lockstep.**
