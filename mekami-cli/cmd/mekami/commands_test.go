@@ -61,8 +61,8 @@ func TestResolveLang_EmptyConfigNoExplicit_ErrorsNoCoresInstalled(t *testing.T) 
 	if !strings.Contains(err.Error(), "no cores installed") {
 		t.Errorf("err = %q, want substring %q", err.Error(), "no cores installed")
 	}
-	if !strings.Contains(err.Error(), "core-install") {
-		t.Errorf("err = %q, want hint pointing at core-install", err.Error())
+	if !strings.Contains(err.Error(), "core install") {
+		t.Errorf("err = %q, want hint pointing at core install", err.Error())
 	}
 }
 
@@ -87,8 +87,8 @@ func TestResolveLang_EmptyConfigExplicitGoNotInBinary_Errors(t *testing.T) {
 	if !strings.Contains(err.Error(), `--lang "go"`) {
 		t.Errorf("err = %q, want mention of --lang go", err.Error())
 	}
-	if !strings.Contains(err.Error(), "core-install") {
-		t.Errorf("err = %q, want hint pointing at core-install", err.Error())
+	if !strings.Contains(err.Error(), "core install") {
+		t.Errorf("err = %q, want hint pointing at core install", err.Error())
 	}
 }
 
@@ -241,8 +241,8 @@ func TestResolveInitLangs_RequestedUnknown_Errors(t *testing.T) {
 	if !strings.Contains(err.Error(), `"python"`) {
 		t.Errorf("err = %q, want mention of python", err.Error())
 	}
-	if !strings.Contains(err.Error(), "core-install") {
-		t.Errorf("err = %q, want hint pointing at core-install", err.Error())
+	if !strings.Contains(err.Error(), "core install") {
+		t.Errorf("err = %q, want hint pointing at core install", err.Error())
 	}
 }
 
@@ -270,7 +270,7 @@ func TestMergeIndexers_ExplicitReplaces(t *testing.T) {
 
 func TestMergeIndexers_ExplicitPreservesExistingVersion(t *testing.T) {
 	// When --lang brings no version, init must not downgrade
-	// the version that core-install already wrote for the
+	// the version that core install already wrote for the
 	// same language.
 	existing := map[string]string{"go": "v0.1.0"}
 	selected := map[string]string{"go": ""}
@@ -678,83 +678,73 @@ func newInitCmd(t *testing.T, extraArgs ...string) *cobra.Command {
 	return nil
 }
 
-// TestServiceCommands_RegisteredAsTopLevel is a regression test for
-// the bug where `mekami service install` failed with
-// "unknown command \"install\" for \"mekami service\"". The old
-// design exposed a single `service` spec with no Args and no
-// Subcommands, so cobra's NoArgs validator rejected the trailing
-// `install`/`uninstall` token. The fix renamed the public surface
-// to `service-install` and `service-uninstall` (mirroring
-// `mcp-install`/`mcp-uninstall`) and removed the broken parent
-// spec entirely. This test asserts both halves of the contract:
+// TestServiceCommands_RegisteredAsGroup is a regression test for
+// the design where the supervisor registration actions live
+// under a single `service` parent (`mekami service install`,
+// `mekami service uninstall`, `mekami service status`). The
+// test asserts:
 //
-//   - the parent `service` command no longer exists, so the old
-//     broken invocation fails fast with a cobra "unknown command"
-//     error instead of a confusing nil-handler panic;
-//   - the new `service-install` and `service-uninstall` commands
-//     are top-level (not hidden) and their specs are present in
-//     naming.Specs.
+//   - the parent `service` command is registered at the
+//     top level (it is a namespace carrier with no RunE);
+//   - the three subcommands `install`, `uninstall`, and
+//     `status` are present under it and visible (not hidden);
+//   - their Specs are present in naming.Specs with the
+//     expected Parent + DispatcherKey.
 //
-// The test does not exec systemctl/launchctl: that path is gated
-// behind the `integration` build tag and requires a live user
-// bus. The contract tested here is purely the cobra registration,
-// which is what was broken.
-func TestServiceCommands_RegisteredAsTopLevel(t *testing.T) {
-	var (
-		hasServiceInstall   *cobra.Command
-		hasServiceUninstall *cobra.Command
-		hasLegacyService    *cobra.Command
-	)
+// The test does not exec systemctl/launchctl: that path is
+// gated behind the `integration` build tag and requires a
+// live user bus. The contract tested here is purely the
+// cobra registration.
+func TestServiceCommands_RegisteredAsGroup(t *testing.T) {
+	var serviceCmd *cobra.Command
 	for _, c := range rootCmd.Commands() {
-		switch c.Use {
-		case "service-install":
-			hasServiceInstall = c
-		case "service-uninstall":
-			hasServiceUninstall = c
-		case "service":
-			hasLegacyService = c
+		if c.Name() == "service" {
+			serviceCmd = c
+			break
 		}
 	}
-	if hasLegacyService != nil {
-		t.Errorf("legacy `service` command must not be registered " +
-			"(it was the source of the unknown-command bug)")
+	if serviceCmd == nil {
+		t.Fatal("`service` parent command is not registered at the top level")
 	}
-	if hasServiceInstall == nil {
-		t.Fatal("`service-install` is not registered as a top-level command")
+
+	want := map[string]bool{"install": false, "uninstall": false, "status": false}
+	for _, sub := range serviceCmd.Commands() {
+		if _, ok := want[sub.Name()]; ok {
+			want[sub.Name()] = true
+		}
 	}
-	if hasServiceUninstall == nil {
-		t.Fatal("`service-uninstall` is not registered as a top-level command")
+	for name, found := range want {
+		if !found {
+			t.Errorf("`service %s` is not registered as a subcommand", name)
+		}
 	}
-	if hasServiceInstall.Hidden {
-		t.Errorf("`service-install` must be visible (Hidden=false); got Hidden=true")
-	}
-	if hasServiceUninstall.Hidden {
-		t.Errorf("`service-uninstall` must be visible (Hidden=false); got Hidden=true")
-	}
+
 	// Specs must agree with the cobra tree. A divergence here
 	// would mean someone changed one but not the other.
-	if naming.LookupByUse("service-install") == nil {
-		t.Error("naming.Specs is missing the service-install entry")
-	}
-	if naming.LookupByUse("service-uninstall") == nil {
-		t.Error("naming.Specs is missing the service-uninstall entry")
-	}
-	if naming.LookupByUse("service") != nil {
-		t.Error("naming.Specs still contains the legacy `service` spec")
+	for _, key := range []string{"service.install", "service.uninstall", "service.status"} {
+		s := naming.LookupByDispatcherKey(key)
+		if s == nil {
+			t.Errorf("naming.Specs is missing the %q entry", key)
+			continue
+		}
+		if s.Parent != "service" {
+			t.Errorf("spec %q has Parent=%q, want \"service\"", key, s.Parent)
+		}
+		if s.Use != strings.TrimPrefix(key, "service.") {
+			t.Errorf("spec %q has Use=%q, want %q", key, s.Use, strings.TrimPrefix(key, "service."))
+		}
 	}
 }
 
-// TestServiceCommands_OldInvocationFailsCleanly exercises the old
-// broken invocation (`mekami service install`) end-to-end through
-// cobra. Before the fix, this command silently parsed as
-// `service` with a trailing `install` that NoArgs rejected, then
-// cobra printed "unknown command" and exited 1. After the fix,
-// cobra must print the same kind of "unknown command" error
-// because the parent `service` no longer exists; the point of
-// this test is to lock in the cobra error contract so a future
-// refactor that re-introduces a broken parent spec is caught.
-func TestServiceCommands_OldInvocationFailsCleanly(t *testing.T) {
-	// The shared rootCmd is global; isolate args and stdio.
+// TestServiceCommands_NewInvocationAcceptsSubcommand exercises the
+// canonical `mekami service install` invocation end-to-end
+// through cobra. The parent `service` is now a real subcommand
+// group, and `install` is a registered subcommand of it. We do
+// not assert on the runner's return value (the platform layer
+// may legitimately fail in CI environments without a user bus);
+// we only assert that cobra recognises the path and dispatches
+// into the runner rather than bailing with "unknown command".
+func TestServiceCommands_NewInvocationAcceptsSubcommand(t *testing.T) {
 	origArgs := rootCmd.Flags().Args()
 	t.Cleanup(func() { rootCmd.SetArgs(origArgs) })
 
@@ -769,19 +759,47 @@ func TestServiceCommands_OldInvocationFailsCleanly(t *testing.T) {
 		rootCmd.SetErr(origErr)
 	})
 
-	rootCmd.SetArgs([]string{"service", "install"})
+	rootCmd.SetArgs([]string{"service", "install", "--help"})
+	err := rootCmd.Execute()
+	if err != nil {
+		// A "help" invocation should never error. If it
+		// does, the path did not reach the runner.
+		t.Fatalf("`mekami service install --help` failed: %v\nstdout=%q\nstderr=%q",
+			err, outBuf.String(), errBuf.String())
+	}
+}
+
+// TestServiceCommands_LegacyFlatFormFailsCleanly exercises the
+// old `mekami service-install` (single token) invocation. After
+// the refactor that form is no longer a registered command and
+// cobra must print a clear "unknown command" error rather than
+// silently dispatching somewhere wrong. The error message
+// should mention the user-typed form so a misdirected migration
+// is easy to spot.
+func TestServiceCommands_LegacyFlatFormFailsCleanly(t *testing.T) {
+	origArgs := rootCmd.Flags().Args()
+	t.Cleanup(func() { rootCmd.SetArgs(origArgs) })
+
+	outBuf := &strings.Builder{}
+	errBuf := &strings.Builder{}
+	origOut := rootCmd.OutOrStderr()
+	origErr := rootCmd.ErrOrStderr()
+	rootCmd.SetOut(outBuf)
+	rootCmd.SetErr(errBuf)
+	t.Cleanup(func() {
+		rootCmd.SetOut(origOut)
+		rootCmd.SetErr(origErr)
+	})
+
+	rootCmd.SetArgs([]string{"service-install"})
 	err := rootCmd.Execute()
 	if err == nil {
-		t.Fatalf("expected `mekami service install` to fail (the parent " +
-			"`service` command should no longer exist); got nil error. " +
-			"stdout=%q stderr=%q", outBuf.String(), errBuf.String())
+		t.Fatalf("expected `mekami service-install` (legacy form) to fail; "+
+			"got nil. stdout=%q stderr=%q", outBuf.String(), errBuf.String())
 	}
-	// cobra surfaces "unknown command" errors via FlagErrorFunc.
-	// The error must mention both the missing parent and the
-	// unknown subcommand so users can tell what went wrong.
 	msg := err.Error()
-	if !strings.Contains(msg, "service") {
-		t.Errorf("error should mention the missing `service` parent: %q", msg)
+	if !strings.Contains(msg, "service-install") {
+		t.Errorf("error should mention the legacy form `service-install`: %q", msg)
 	}
 }
 

@@ -77,7 +77,7 @@ The version is stamped at build time via
 ### Wire mekami into an MCP client
 
 ```bash
-mekami mcp-install
+mekami mcp install
 ```
 
 This writes an `mcp.mekami` entry into the user's `opencode.json`
@@ -104,7 +104,7 @@ server name, `--disable` to register with `enabled: false`, or
 To remove the entry:
 
 ```bash
-mekami mcp-uninstall
+mekami mcp uninstall
 ```
 
 ## Quick start
@@ -114,7 +114,7 @@ mekami mcp-uninstall
 yay -S mekami-bin
 
 # 2. Wire it into your MCP client.
-mekami mcp-install
+mekami mcp install
 
 # 3. In your Go project: create .mekami/, build the index, and
 #    (optionally) install the watcher as a system service so the
@@ -191,16 +191,26 @@ result on a no-hits query).
 | `mekami restart` | Stop + start. |
 | `mekami reload` | Re-read `.mekami/config.json`; hot-only changes are pushed, cold changes trigger restart. |
 | `mekami logs` | Tail the daemon log. |
-| `mekami service-install` | Register the supervisor as a system service (systemd --user on Linux, LaunchAgent on macOS). |
-| `mekami service-uninstall` | Tear the service down. |
+| `mekami service install` | Register the supervisor as a system service (systemd --user on Linux, LaunchAgent on macOS). |
+| `mekami service uninstall` | Tear the service down. |
+| `mekami service status` | Show whether the supervisor is registered, enabled, and active. |
 
 ### MCP integration
 
 | Command | Description |
 | --- | --- |
-| `mekami mcp-install` | Register the mekami MCP server in the host client (OpenCode today). |
-| `mekami mcp-uninstall` | Remove the entry. |
-| `mekami mcp-test` | Spawn the server as a subprocess and call a sample of tools (smoke test). |
+| `mekami mcp install` | Register the mekami MCP server in the host client (OpenCode today). |
+| `mekami mcp uninstall` | Remove the entry. |
+| `mekami mcp test` | Spawn the server as a subprocess and call a sample of tools (smoke test). |
+
+### Core (language indexers)
+
+| Command | Description |
+| --- | --- |
+| `mekami core install <lang>[@<version>]` | Register a language indexer for this project. |
+| `mekami core list` | List configured and loaded cores. |
+| `mekami core uninstall <lang>` | Remove a language indexer from this project. |
+| `mekami core status` | Show configured vs loaded cores with a missing/loaded summary. |
 
 ### `mekami build` flags
 
@@ -250,7 +260,7 @@ whose `lang` is no longer tracked is removed with the same
 binary now registers; with `--lang` the explicit list replaces
 what was there. If the binary has no cores registered yet
 (fresh checkout), `init` errors out and points at `./build.sh`
-or `mekami core-install <lang>`.
+or `mekami core install <lang>`.
 
 ## MCP tools
 
@@ -348,7 +358,7 @@ github.com/Wolf258/mekami-core         Indexer, queries, SQLite store
 ├── modlayout/                        go.mod / go.work resolution
 ├── ingest/                           Build orchestration + incremental
 ├── frontend/all_gen/                 Generated blank-imports (rewritten
-│   │                                 by `mekami core-install`)
+│   │                                 by `mekami core install`)
 ├── queries/, path/, diff/, grep/     Read-side helpers
 └── testutil/                         Shared test fixtures
 
@@ -364,16 +374,18 @@ github.com/Wolf258/mekami-core         CLI / MCP / supervisor / daemon
 │   ├── root.go                       Specs -> cobra loop
 │   ├── runner.go                     dispatch + --json + exit codes
 │   ├── commands.go                   lifecycle / daemon / mcp runners
-│   ├── coreinstall.go                `core-install` / `core-list`
-│   ├── mcptest.go                    `mekami mcp-test` smoke runner
+│   ├── coreinstall.go                `core install` / `core list` /
+│   │                                 `core uninstall` / `core status`
+│   ├── mcptest.go                    `mekami mcp test` smoke runner
 │   ├── util.go                       printJSON, supervisor helpers
-│   ├── service_*.go                  platform-specific service-install
+│   ├── service_*.go                  platform-specific service install
+│   ├── service_status.go             `service status` runner
 │   └── dbpath.go                     --db flag plumbing
 ├── internal/
 │   ├── config/                       .mekami/config.json schema + Load
 │   │                                 (parses the `indexers` list)
-│   ├── coreinstall/                  `core-install` resolver + gen +
-│   │                                 list implementation
+│   ├── coreinstall/                  `core install` resolver + gen +
+│   │                                 uninstall + list implementation
 │   ├── naming/                       single source of truth for the
 │   │                                 user-facing surface (Spec, Flag, Specs)
 │   ├── handlers/read.go              shared read implementations (CLI+MCP)
@@ -393,9 +405,10 @@ github.com/Wolf258/mekami-cli       CLI / MCP / supervisor / daemon
 │   ├── root.go                    Specs -> cobra loop
 │   ├── runner.go                  dispatch + --json + exit codes
 │   ├── commands.go                lifecycle / daemon / mcp runners
-│   ├── mcptest.go                 `mekami mcp-test` smoke runner
+│   ├── mcptest.go                 `mekami mcp test` smoke runner
 │   ├── util.go                    printJSON, supervisor helpers
-│   ├── service_*.go               platform-specific service-install
+│   ├── service_*.go               platform-specific service install
+│   ├── service_status.go          `service status` runner
 │   └── dbpath.go                  --db flag plumbing
 ├── internal/
 │   ├── config/                    .mekami/config.json schema + Load
@@ -449,7 +462,7 @@ github.com/Wolf258/mekami-cli       CLI / MCP / supervisor / daemon
 Each language indexer is its own Go module. The Go indexer lives
 in [`mekami-core-go`](https://github.com/Wolf258/mekami-core-go)
 and is **not** bundled by default. After cloning, run
-`mekami core-install go` to add it to your `.mekami/config.json`
+`mekami core install go` to add it to your `.mekami/config.json`
 and rebuild. Additional languages — Rust, C, etc. — follow the
 same shape: a standalone repo at
 `github.com/Wolf258/mekami-core-<lang>` that depends only on
@@ -468,18 +481,18 @@ Project-wide installation is driven by `.mekami/config.json`:
 ```
 
 `indexers` is a map from language name to the version
-`core-install` resolved. An empty value (`"rust": ""`) means the
-language was added by `mekami init` but `core-install` hasn't run
+`core install` resolved. An empty value (`"rust": ""`) means the
+language was added by `mekami init` but `core install` hasn't run
 for it yet — the build still tracks it, and a later
-`mekami build --lang rust` (or `core-install rust`) fills the
-version. `mekami core-install <lang>[@<version>]` resolves the
+`mekami build --lang rust` (or `core install rust`) fills the
+version. `mekami core install <lang>[@<version>]` resolves the
 version via the Go module proxy (`go list -m -versions`),
 writes the entry to `indexers`, and regenerates
 `mekami-core/frontend/all_gen/all_gen.go` with a fresh blank
-import. `mekami core-list` shows the indexer set requested by
-the config versus what the running binary has registered
-(frontends that are listed but whose blank import is missing
-are reported as `missing`).
+import. `mekami core list` and `mekami core status` show the
+indexer set requested by the config versus what the running
+binary has registered (frontends that are listed but whose blank
+import is missing are reported as `missing`).
 
 ## Watch mode
 
@@ -500,7 +513,7 @@ mekami restart                    # stop + start
 mekami reload                     # re-read .mekami/config.json
 ```
 
-`mekami service-install` registers the supervisor as a system
+`mekami service install` registers the supervisor as a system
 service (per-user, single instance) so it starts automatically
 when you log in and rehydrates every daemon from `daemons.json`:
 
@@ -606,7 +619,7 @@ The watchdog is best-effort:
   pair. The watchdog is not a replacement for the service
   install; it is a complement that catches the "wedged
   but alive" case the service manager cannot.
-- If you do not run `mekami service-install`, the
+- If you do not run `mekami service install`, the
   watchdog still works: it is launched automatically the
   first time any `mekami` command needs the supervisor.
   The watchdog is what keeps the supervisor alive across
@@ -617,7 +630,7 @@ You never invoke the watchdog directly. It is the hidden
 session (`setsid`) so it survives the parent shell
 exiting. On startup the watchdog writes its own PID to
 `$XDG_CONFIG_HOME/mekami/supervisor/watchdog.pid` and
-removes the file on exit, so `service-uninstall` can find
+removes the file on exit, so `service uninstall` can find
 and signal it without scanning the process table.
 
 The watchdog also watches for a **stop sentinel** at
@@ -625,7 +638,7 @@ The watchdog also watches for a **stop sentinel** at
 file is present, the watchdog exits on its next tick
 (immediately if the sentinel is already there on
 startup) regardless of supervisor state. The sentinel
-is what `service-uninstall` uses to make the watchdog
+is what `service uninstall` uses to make the watchdog
 exit deterministically rather than waiting for the
 next health-check tick to discover the supervisor is
 gone. The supervisor clears the sentinel on the next
@@ -673,8 +686,8 @@ even when no supervisor is around.
 
 ### Uninstalling the service
 
-`mekami service-uninstall` is the symmetric counterpart
-to `service-install`. On Linux and macOS it:
+`mekami service uninstall` is the symmetric counterpart
+to `service install`. On Linux and macOS it:
 
 1. Sends a `quit-all` IPC request to the running
    supervisor. The supervisor stops every registered
@@ -700,7 +713,7 @@ to `service-install`. On Linux and macOS it:
 
 The per-project `.mekami/` directories and the
 `daemons.json` registry are **preserved**. A
-subsequent `mekami service-install` will rehydrate
+subsequent `mekami service install` will rehydrate
 the same set of daemons from the registry, so the
 user's intent ("watch these projects") survives the
 uninstall. The result is what we call a **hard
@@ -713,14 +726,14 @@ If you also want the registry and per-project state
 removed, the user can do it manually (`rm -rf
 $XD_CONFIG_HOME/mekami` and the `.mekami/`
 directories inside each project). Adding a
-`--purge` flag to `service-uninstall` is a
+`--purge` flag to `service uninstall` is a
 deliberate non-feature: deleting user data without
 an explicit, separate opt-in is too easy to do by
 accident.
 
 The watchdog is reachable via
 `$XDG_CONFIG_HOME/mekami/supervisor/watchdog.pid`,
-so `service-uninstall` does not have to scan the
+so `service uninstall` does not have to scan the
 process table to find it. If the PID file is
 missing (e.g. the user manually killed the
 watchdog) the uninstall falls through to the
@@ -822,7 +835,7 @@ batch / file / error counters to its log.
   bundled in the binary by default. Add a frontend by publishing a
   new module at `github.com/Wolf258/mekami-core-<lang>`, depending
   on `mekami-core/api/v1`, and registering via
-  `mekami core-install <lang>`.
+  `mekami core install <lang>`.
 - **No body text in the index.** Mekami only indexes symbol
   names and reference edges. For substring search inside function
   bodies, comments, log strings, or TODOs, use `mekami find-text`
@@ -860,7 +873,7 @@ push to `main` and on every pull request:
 2. `./build.sh` to produce the binary.
 3. `./mekami build` to index the Mekami codebase itself
    (self-hosting test).
-4. `./mekami mcp-test` to verify the MCP wire works end-to-end
+4. `./mekami mcp test` to verify the MCP wire works end-to-end
    against the freshly built graph.
 
 ## Status

@@ -18,9 +18,9 @@ type Config struct {
 	Version int `json:"version"`
 	// Indexers is the set of language cores the project tracks,
 	// keyed by language name. The value is the semver version
-	// `core-install` resolved for that language; an empty string
+	// `core install` resolved for that language; an empty string
 	// means the language was added by `mekami init` but no
-	// `core-install` has run for it yet. The build's
+	// `core install` has run for it yet. The build's
 	// cross-language cleanup uses these keys to decide which
 	// `files.lang` rows to keep in the graph DB.
 	Indexers map[string]string `json:"indexers,omitempty"`
@@ -438,7 +438,7 @@ func isValidIndexerName(s string) bool {
 }
 
 // isValidIndexerVersion accepts the loose semver forms Mekami
-// uses in core-install output: "v0.1.0", "0.1.0", "v1".
+// uses in core install output: "v0.1.0", "0.1.0", "v1".
 func isValidIndexerVersion(s string) bool {
 	s = strings.TrimPrefix(s, "v")
 	if s == "" {

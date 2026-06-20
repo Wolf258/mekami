@@ -103,3 +103,65 @@ func runLaunchctl(args ...string) error {
 	}
 	return nil
 }
+
+// serviceStatusOS reports whether the per-user LaunchAgent
+// is registered, enabled (loaded with -w), and active
+// (currently running). The plist file's existence is the
+// registered check; `launchctl list` parses the supervisor's
+// row to derive enabled/active. launchctl does not have
+// separate is-enabled / is-active commands, so the two are
+// inferred from a single `launchctl list` row.
+//
+// launchctl list output format per line:
+//
+//   "<pid-or-->\t<last-exit-status>\t<label>"
+//
+// where pid is "-" when the agent is not currently running.
+// "Disabled" agents still appear in the list with a "-"
+// pid; we treat that as registered+enabled+inactive.
+func serviceStatusOS() (ServiceStatusReport, error) {
+	plistPath := filepath.Join(launchAgentsDir(), supervisorLaunchLabel+".plist")
+	report := ServiceStatusReport{UnitPath: plistPath}
+	if _, err := os.Stat(plistPath); err == nil {
+		report.Registered = true
+	} else if !os.IsNotExist(err) {
+		return report, fmt.Errorf("stat %s: %w", plistPath, err)
+	}
+	out, err := exec.Command("launchctl", "list").Output()
+	if err != nil {
+		// launchctl itself failing is not fatal — the file
+		// stat above is the source of truth for
+		// Registered. We just skip the enabled/active
+		// fields and report a note.
+		report.Notes = append(report.Notes, fmt.Sprintf("launchctl list failed: %v", err))
+		return report, nil
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Split(line, "\t")
+		if len(fields) < 3 {
+			continue
+		}
+		if strings.TrimSpace(fields[2]) != supervisorLaunchLabel {
+			continue
+		}
+		// found the supervisor row. If pid is "-" the agent
+		// is registered but not currently running. If pid
+		// is a number, it is active.
+		report.Enabled = true // loaded agents are considered enabled
+		pid := strings.TrimSpace(fields[0])
+		if pid != "-" && pid != "" {
+			report.Active = true
+			report.ActiveState = "pid=" + pid
+		} else {
+			report.ActiveState = "stopped"
+		}
+		return report, nil
+	}
+	// File exists but launchctl has no row — the agent was
+	// unloaded (typical state right after `service uninstall`
+	// has not yet removed the plist). Note it.
+	if report.Registered {
+		report.Notes = append(report.Notes, "plist exists but launchctl has no entry; run `launchctl load -w` (or `service install`) to activate")
+	}
+	return report, nil
+}

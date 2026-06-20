@@ -7,10 +7,10 @@
 //	mekami <lifecycle>      init, serve, build, stats
 //	mekami <graph read>     find, show, who-calls, what-calls, trace,
 //	                        list-*, show-*, find-text, index-status
-//	mekami <daemon>         start, stop, status, restart, reload, logs,
-//	                        service-install, service-uninstall
-//	mekami <mcp>            mcp-install, mcp-uninstall
-//	mekami mcp-test         smoke test the MCP server end-to-end
+//	mekami <daemon>         start, stop, status, restart, reload, logs
+//	mekami service          install, uninstall, status
+//	mekami mcp              install, uninstall, test
+//	mekami core             install, list, uninstall, status
 //
 // Hidden internal entry points (also in naming.Specs): _daemon and
 // supervise (re-execed by the supervisor).
@@ -54,31 +54,27 @@ func init() {
 
 // Version returns the binary's version string. Cobra's --version
 // calls this on every invocation, so a live re-stamp (e.g. after
-// `mcp-install` re-execs the binary) is reflected without restart.
+// `mcp install` re-execs the binary) is reflected without restart.
 func Version() string { return install.Version() }
 
 func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
 }
 
-// registerAll walks naming.Specs and adds every Spec as a
-// top-level cobra command. CLI-only behavior lives in a small
-// switch in runCommand; everything else delegates to the shared
-// dispatch table in internal/handlers (or the daemon/service
-// commands in their own files).
+// registerAll walks naming.Specs and adds every Spec to the
+// cobra tree. Top-level specs (Parent=="") are attached to
+// root; grouped specs (Parent!="") are routed to a synthesized
+// parent command created from naming.Parents. The runner for
+// each Spec is resolved by DispatcherKey from the map returned
+// by buildRunners; see runner.go for the registry.
 func registerAll(root *cobra.Command) {
-	for _, spec := range naming.Specs {
-		spec := spec
-		if spec.Hidden {
-			root.AddCommand(buildCobra(&spec, hiddenRunner(&spec)))
-			continue
-		}
-		root.AddCommand(buildCobra(&spec, runCommand(&spec)))
-	}
+	naming.BuildSubcommandTree(root, naming.Specs, buildRunners())
 }
 
 // buildCobra attaches the spec's flags to a fresh cobra command
-// and returns it. The runner is supplied by the caller.
+// and returns it. The runner is supplied by the caller. This
+// helper is kept for any future external caller; the dispatcher
+// in registerAll uses naming.buildSubcommandTree directly.
 func buildCobra(spec *naming.Spec, runE func(*cobra.Command, []string) error) *cobra.Command {
 	return naming.CobraCommand(*spec, runE)
 }

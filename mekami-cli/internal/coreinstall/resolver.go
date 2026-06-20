@@ -19,7 +19,7 @@ type Resolver struct{}
 func NewResolver() *Resolver { return &Resolver{} }
 
 // Available reports whether the `go` tool is on PATH and can be
-// invoked. core-install short-circuits with a clear error when it
+// invoked. core install short-circuits with a clear error when it
 // is not, rather than failing deep in a go list call.
 func (r *Resolver) Available() error {
 	out, err := exec.Command("go", "version").CombinedOutput()
@@ -172,7 +172,7 @@ func parseTriplet(v string) (int, int, int) {
 }
 
 // EnsureGoGet is a no-op helper kept for future expansion. The
-// `core-install` flow does not need to `go get` anything: the
+// `core install` flow does not need to `go get` anything: the
 // generated blank import in all_gen.go is resolved by the Go
 // toolchain at build time of the consumer (mekami-cli). A future
 // "side-store" path that pre-downloads modules would call

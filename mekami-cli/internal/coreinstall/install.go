@@ -29,7 +29,7 @@ type InstallOutcome struct {
 	AllGenPath string
 }
 
-// Install is the high-level entry point used by `core-install`.
+// Install is the high-level entry point used by `core install`.
 // Given a "lang@version" reference (or just "lang" for @latest),
 // it resolves the version, updates the project's
 // .mekami/config.json indexers[], and regenerates

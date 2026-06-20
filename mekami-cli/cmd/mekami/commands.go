@@ -89,7 +89,7 @@ func runBuild(ctx context.Context, cmd *cobra.Command) error {
 		if cfg.Indexers == nil {
 			cfg.Indexers = make(map[string]string)
 		}
-		// The new entry has no version yet; `core-install` will
+		// The new entry has no version yet; `core install` will
 		// fill it in next time it runs for this language.
 		cfg.Indexers[explicit] = ""
 		if err := cfg.Validate(); err != nil {
@@ -101,7 +101,7 @@ func runBuild(ctx context.Context, cmd *cobra.Command) error {
 		tracking = append(tracking, explicit)
 		sort.Strings(tracking)
 		names := strings.Join(tracking, ", ")
-		fmt.Fprintf(os.Stderr, "build: adding new indexer %q to config.json (no version yet — run `mekami core-install %s` to register it). tracking now: %s\n", explicit, explicit, names)
+		fmt.Fprintf(os.Stderr, "build: adding new indexer %q to config.json (no version yet — run `mekami core install %s` to register it). tracking now: %s\n", explicit, explicit, names)
 	}
 	opts := ingest.BuildOptions{
 		Root:         rootFlag,
@@ -160,11 +160,12 @@ func loadConfigAndResolveLang(explicit string) (string, error) {
 //   - When --lang is set, it must be either a name listed in
 //     .mekami/config.json indexers[] or a frontend registered in
 //     the running binary (api.Global.Names()). Unknown values
-//     produce a clear error that suggests core-install.
+//     produce a clear error that suggests core install.
+//
 //   - When --lang is omitted and exactly one indexer is listed,
 //     that indexer is used (and must be registered in the binary).
 //     When zero are listed, the error says no cores are installed
-//     and points at core-install. When two or more are listed,
+//     and points at core install. When two or more are listed,
 //     --lang becomes required and the error points at the ambiguity.
 //
 // The CLI's `ingest` package never sees this; resolveLang is the
@@ -182,18 +183,18 @@ func resolveLang(cfg config.Config, explicit string) (string, error) {
 		}
 		return "", cliError{code: 64, msg: fmt.Sprintf(
 			"build: --lang %q is not installed for this project.\n"+
-				"hint: run `mekami core-install %s` to register it.", explicit, explicit)}
+				"hint: run `mekami core install %s` to register it.", explicit, explicit)}
 	}
 	switch len(cfg.Indexers) {
 	case 0:
 		return "", cliError{code: 64, msg: "build: no cores installed for this project.\n" +
-			"hint: run `mekami core-install <lang>` to register a frontend."}
+			"hint: run `mekami core install <lang>` to register a frontend."}
 	case 1:
 		name := onlyKey(cfg.Indexers)
 		if !loaded[name] {
 			return "", cliError{code: 64, msg: fmt.Sprintf(
 				"build: indexer %q is configured but not registered in the current binary.\n"+
-					"hint: rebuild mekami after `core-install` to link the frontend.", name)}
+					"hint: rebuild mekami after `core install` to link the frontend.", name)}
 		}
 		return name, nil
 	default:
@@ -325,10 +326,10 @@ func runInit(ctx context.Context, cmd *cobra.Command, _ []string) error {
 		fmt.Fprintf(os.Stderr, "init: using available core: %s\n", available[0])
 	} else if len(requested) > 0 {
 		// Distinguish cores that have a version (came from
-		// core-install or a previous config) from those that
+		// core install or a previous config) from those that
 		// init just added (no version yet). The user
 		// benefits from knowing which entries they should run
-		// `core-install` for.
+		// `core install` for.
 		savedCfg, loadErr := config.Load(cfgPath)
 		parts := make([]string, 0, len(chosen))
 		for _, name := range chosen {
@@ -410,7 +411,7 @@ func runInit(ctx context.Context, cmd *cobra.Command, _ []string) error {
 
 	// The daemon also takes a single lang. If we couldn't resolve
 	// one above, we don't start the daemon — the user has to pick
-	// a language first via `core-install` + re-init or by editing
+	// a language first via `core install` + re-init or by editing
 	// the config down to a single indexer.
 	if !canBuild {
 		return cliError{code: 1, msg: "init: cannot start daemon with multiple indexers and no --lang; reduce indexers or pass --lang."}
@@ -431,13 +432,13 @@ func runInit(ctx context.Context, cmd *cobra.Command, _ []string) error {
 //   - available is empty: error, no cores registered in the binary.
 //   - requested is empty: use available as-is (sorted).
 //   - requested is non-empty: every entry must be in available,
-//     otherwise error pointing at core-install + ./build.sh.
+//     otherwise error pointing at core install + ./build.sh.
 //   - duplicates in requested are de-duplicated; order is not
 //     preserved (output is sorted for determinism).
 func resolveInitLangs(requested, available []string) ([]string, error) {
 	if len(available) == 0 {
 		return nil, cliError{code: 64, msg: "init: no language cores registered in this binary.\n" +
-			"hint: run `./build.sh` (or `mekami core-install <lang>` + rebuild) to load at least one frontend."}
+			"hint: run `./build.sh` (or `mekami core install <lang>` + rebuild) to load at least one frontend."}
 	}
 	known := make(map[string]bool, len(available))
 	for _, n := range available {
@@ -461,7 +462,7 @@ func resolveInitLangs(requested, available []string) ([]string, error) {
 		if !known[n] {
 			return nil, cliError{code: 64, msg: fmt.Sprintf(
 				"init: --lang %q is not registered in this binary.\n"+
-					"hint: run `./build.sh` after `mekami core-install %s` to link the frontend.",
+					"hint: run `./build.sh` after `mekami core install %s` to link the frontend.",
 				n, n)}
 		}
 		seen[n] = true
@@ -476,7 +477,7 @@ func resolveInitLangs(requested, available []string) ([]string, error) {
 
 // indexersFromNames builds a map[string]string from a list of
 // language names, all with empty version. Used when init has no
-// prior config to consult; core-install fills the version later.
+// prior config to consult; core install fills the version later.
 func indexersFromNames(names []string) map[string]string {
 	out := make(map[string]string, len(names))
 	for _, n := range names {
@@ -691,7 +692,7 @@ func runServiceUninstall() error {
 	return serviceUninstall()
 }
 
-// ─── MCP integration (mcp-install / mcp-uninstall) ─────────────
+// ─── MCP integration (mcp install / mcp uninstall) ─────────────
 
 func runMCPInstall(ctx context.Context, _ []string, flags namingArgMap) error {
 	_ = ctx
@@ -980,7 +981,7 @@ func runSupervisorMain(ctx context.Context) error {
 // units (which only restart the *supervisor* if the
 // supervisor exits; they do nothing for a wedged supervisor
 // that is alive but unresponsive). On platforms where
-// service-install is not implemented, the watchdog is the
+// service install is not implemented, the watchdog is the
 // only safety net.
 //
 // The watchdog itself is also short-lived: it exits when
@@ -1042,7 +1043,7 @@ func startWatchdogProcess() error {
 // is to:
 //   - write the watchdog's PID to
 //     $XDG_CONFIG_HOME/mekami/supervisor/watchdog.pid
-//     so `service-uninstall` can find us without
+//     so `service uninstall` can find us without
 //     scanning the process table;
 //   - install a SIGTERM handler that cancels ctx
 //     (the supervisor does not propagate signals to
@@ -1052,13 +1053,13 @@ func startWatchdogProcess() error {
 //     and the canonical state directory.
 //
 // On exit, the watchdog's PID file is removed so a
-// future `service-uninstall` does not signal a stale
+// future `service uninstall` does not signal a stale
 // PID. The sentinel file (if any) is left alone: the
 // supervisor clears it on the next startup.
 //
 // The watchdog exits when:
 //   - the stop sentinel is observed (set by
-//     `service-uninstall` via HandleQuitAll);
+//     `service uninstall` via HandleQuitAll);
 //   - the supervisor's PID disappears AND the socket
 //     is gone (clean shutdown: systemd will restart
 //     the supervisor, which will spawn a new
@@ -1067,7 +1068,7 @@ func startWatchdogProcess() error {
 //     re-spawned it (the new supervisor spawns its
 //     own watchdog); or
 //   - SIGTERM is delivered to the watchdog (e.g. the
-//     `service-uninstall` flow signals the PID
+//     `service uninstall` flow signals the PID
 //     directly as a fast path); or
 //   - ctx is cancelled (test only).
 func runWatchdogMain(ctx context.Context) error {
@@ -1082,7 +1083,7 @@ func runWatchdogMain(ctx context.Context) error {
 	// session (Setsid), so SIGTERM from the parent
 	// shell is not inherited; this handler is here
 	// for the explicit `pkill -TERM mekami` path
-	// (e.g. `service-uninstall`'s fast path) and for
+	// (e.g. `service uninstall`'s fast path) and for
 	// tests that cancel the watchdog via signal.
 	sigCtx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()

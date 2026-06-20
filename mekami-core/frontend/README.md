@@ -22,7 +22,7 @@ knows how to:
 Since phase 2, individual frontends live in their own Go modules
 (e.g. `github.com/Wolf258/mekami-core-go` for the Go language).
 The bundled `all_gen` package is generated from
-`.mekami/config.json` indexers[] by `mekami core-install`; adding
+`.mekami/config.json` indexers[] by `mekami core install`; adding
 a language is now a separate-repo concern plus one CLI command.
 
 ## Writing a new language indexer
@@ -86,7 +86,7 @@ func init() { api.Register(Frontend{}) }
 From inside the mekami source tree (where `go.work` lives):
 
 ```
-mekami core-install mylang@v0.1.0
+mekami core install mylang@v0.1.0
 ```
 
 This appends `{ "name": "mylang", "version": "v0.1.0" }` to

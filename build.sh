@@ -17,7 +17,7 @@
 # Dev-only behavior: this script regenerates
 # mekami-core/frontend/all_gen/all_gen.go with the dev builtin set
 # (today: mekami-core-go) before compiling, so the resulting binary
-# can index a Go project without `mekami core-install go` first.
+# can index a Go project without `mekami core install go` first.
 # The original all_gen.go is restored on exit (success or failure)
 # via an EXIT trap, so the working tree stays clean. If you are
 # editing all_gen.go by hand, do not run this script in parallel.

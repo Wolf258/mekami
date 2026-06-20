@@ -60,7 +60,7 @@ name is owned by someone else.
   `ResolveModules`, `RootModule`, `ResolveFile`, `ParseFile`.
 - **`mekami-cli`** — the binary. Imports `mekami-core` and
   blank-imports the language cores the user has installed
-  (`core-install go` etc.).
+  (`core install go` etc.).
 - **`mekami-core-go`** — the Go language frontend. Implements
   `api.Frontend` and self-registers at `init()`. Imports
   `mekami-api` for the contract; does **not** import
@@ -195,7 +195,7 @@ go test ./...
 ./build.sh
 
 # Rebuild after changing a core.
-./build.sh && ./mekami core-list
+./build.sh && ./mekami core list
 ```
 
 ## Test tiers
@@ -213,7 +213,7 @@ build tag:
   - `mekami-core/integration_test/...` — ingest pipeline
     against real Go source.
   - `mekami-cli/cmd/mekami/service_integration_test.go` —
-    supervisor / watchdog / service-install lifecycle
+    supervisor / watchdog / service install lifecycle
     (requires `systemd --user`).
   - `mekami-cli/internal/watch/integration_test.go` — full
     fsnotify / poller → build → DB propagation.
@@ -282,8 +282,8 @@ Suppose you're adding `mekami-core-rust`.
    ```bash
    go test ./...
    ./build.sh
-   ./mekami core-install rust
-   ./mekami core-list          # should now show "rust"
+   ./mekami core install rust
+   ./mekami core list          # should now show "rust"
    ```
 
 ## Integration tests in mekami-core
@@ -380,7 +380,7 @@ The e2e template lives at `go.work.e2e.example`; the live
 - `README.md` — user-facing documentation.
 - `github.com/Wolf258/mekami-api` — the `Frontend` interface
   contract every core must implement.
-- `mekami-cli/internal/coreinstall/doc.go` — how `core-install`
+- `mekami-cli/internal/coreinstall/doc.go` — how `core install`
   and the generated `all_gen.go` fit together.
 - `mekami-core/scripts/dev-allgen/` — the script that
   regenerates `all_gen.go`.

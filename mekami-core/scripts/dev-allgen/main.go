@@ -12,7 +12,7 @@
 //
 // The hard-coded set lives in devCores. To add a permanent
 // builtin, edit the slice. Per-project indexers should be added
-// via `mekami core-install <lang>` instead.
+// via `mekami core install <lang>` instead.
 package main
 
 import (
@@ -38,10 +38,10 @@ func render(imports []string) string {
 	b.WriteString("// frontends the mekami binary blank-imports at startup. The dev\n")
 	b.WriteString("// build script (build.sh) rewrites it on every build to ensure\n")
 	b.WriteString("// the binary has Go as a builtin. The production release process\n")
-	b.WriteString("// regenerates it from .mekami/config.json via `mekami core-install`.\n")
+	b.WriteString("// regenerates it from .mekami/config.json via `mekami core install`.\n")
 	b.WriteString("//\n")
 	b.WriteString("// To add a permanent builtin, edit dev-allgen/devCores. To add a\n")
-	b.WriteString("// per-project indexer, run `mekami core-install <lang>`.\n")
+	b.WriteString("// per-project indexer, run `mekami core install <lang>`.\n")
 	b.WriteString("package all_gen\n\n")
 	if len(imports) == 0 {
 		b.WriteString("import ()\n")

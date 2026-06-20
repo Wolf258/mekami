@@ -103,7 +103,7 @@ func readWatchdogPID(path string) (int, error) {
 // (so the service manager can restart the whole pair).
 //
 // In addition, the loop checks the stop sentinel on
-// every iteration: when `mekami service-uninstall`
+// every iteration: when `mekami service uninstall`
 // runs, it writes the sentinel before signalling the
 // supervisor, so the watchdog exits within one tick
 // (≤5s in production, much less in tests) rather than

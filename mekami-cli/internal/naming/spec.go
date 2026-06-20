@@ -50,9 +50,19 @@ type Spec struct {
 	// Hidden hides the command from --help output. Use for internal
 	// re-exec entry points.
 	Hidden bool
-	// Group is the cobra group label. Empty = no group. Used to
-	// cluster commands in --help output (e.g. "daemon", "mcp").
-	Group string
+	// Parent is the cobra parent command name. Empty = top-level
+	// command. When set, the Spec is attached as a subcommand of
+	// a synthesized parent (e.g. "mcp", "core", "service"). The
+	// parent itself has no RunE; it is a namespace carrier.
+	Parent string
+	// DispatcherKey is the stable identifier used by the CLI
+	// runner to look up the executor for this Spec. It is
+	// independent of Use (which contains placeholder tokens like
+	// "<lang>[@<version>]") and of Parent (which is structural).
+	// Convention: "parent.use" for grouped specs (e.g.
+	// "core.install", "mcp.uninstall"), bare "use" for top-level.
+	// Every user-facing Spec MUST set this.
+	DispatcherKey string
 }
 
 // Arg is a positional argument. Required, by cobra convention, unless

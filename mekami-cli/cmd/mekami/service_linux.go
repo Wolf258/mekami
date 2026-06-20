@@ -124,4 +124,48 @@ func runSystemctl(args ...string) error {
 	return nil
 }
 
+// serviceStatusOS reports whether the per-user systemd unit
+// is registered, enabled, and active. The implementation
+// combines a filesystem stat (Registered), `systemctl
+// --user is-enabled` (Enabled), and `systemctl --user
+// is-active` (Active). Each is queried independently so a
+// single failure does not mask the others; the worst case
+// is a partial report, not a hard error.
+func serviceStatusOS() (ServiceStatusReport, error) {
+	unitPath := filepath.Join(systemdUserDir(), supervisorUnitName)
+	report := ServiceStatusReport{UnitPath: unitPath}
+	if _, err := os.Stat(unitPath); err == nil {
+		report.Registered = true
+	} else if !os.IsNotExist(err) {
+		return report, fmt.Errorf("stat %s: %w", unitPath, err)
+	}
+	// `is-enabled` returns "enabled", "disabled", "static",
+	// "masked", "not-found", etc. on stdout. We treat only
+	// "enabled" as Enabled=true; "static" means the unit is
+	// installed but not auto-startable, and "not-found"
+	// means the unit is gone (e.g. the user removed the file
+	// by hand). Anything else is reported as a note.
+	if out, err := exec.Command("systemctl", "--user", "is-enabled", supervisorUnitName).Output(); err == nil {
+		switch strings.TrimSpace(string(out)) {
+		case "enabled":
+			report.Enabled = true
+		case "not-found":
+			// file stat said it exists, but systemd
+			// disagrees — a stale cache. Note it but
+			// do not error.
+			report.Notes = append(report.Notes, "unit file exists but systemctl is-enabled reports 'not-found'; try `systemctl --user daemon-reload`")
+		default:
+			report.Notes = append(report.Notes, "is-enabled: "+strings.TrimSpace(string(out)))
+		}
+	}
+	if out, err := exec.Command("systemctl", "--user", "is-active", supervisorUnitName).Output(); err == nil {
+		state := strings.TrimSpace(string(out))
+		report.ActiveState = state
+		if state == "active" {
+			report.Active = true
+		}
+	}
+	return report, nil
+}
+
 var _ = supervisor.StateDir

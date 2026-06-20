@@ -12,58 +12,124 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// runCommand returns a cobra RunE that dispatches a top-level
-// read command to the matching handler in internal/handlers.
-// The CLI does the same work as the MCP server, just with the
-// args encoded as cobra flags and the response written to stdout
-// (or rendered as formatted text).
-func runCommand(spec *naming.Spec) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		switch spec.Use {
-		case "init":
-			return runInit(ctx, cmd, args)
-		case "serve":
-			return runServe(ctx, cmd)
-		case "build":
-			return runBuild(ctx, cmd)
-		case "stats":
-			return runStats(ctx, cmd)
-		case "start", "stop", "status", "restart", "reload", "logs":
-			return runDaemon(spec.Use, ctx, cmd, args)
-		case "service-install":
-			return runServiceInstall()
-		case "service-uninstall":
-			return runServiceUninstall()
-		case "mcp-install":
-			return runMCPInstall(ctx, args, flagVals(cmd, spec))
-		case "mcp-uninstall":
-			return runMCPUninstall(ctx, args)
-		case "mcp-test":
-			return runMCPTest(ctx, cmd)
-		case "core-install <lang>[@<version>]":
-			return runCoreInstall(ctx, cmd, args)
-		case "core-list":
-			return runCoreList(ctx, cmd)
+// buildRunners returns the full DispatcherKey -> runner map used
+// by registerAll (via buildSubcommandTree). Adding a new Spec
+// means adding a new entry here AND a matching DispatcherKey on
+// the Spec. The wrapper closures are the place that adapts the
+// cobra signature (cmd, args) to each run*'s internal shape
+// (some take ctx, some take flagVals, some take the spec for
+// the graph read).
+//
+// Graph-read commands (find, show, who-calls, ...) are NOT
+// listed here individually. They are dispatched through
+// runGraphRead, which knows how to handle the full
+// Spec -> handler mapping. Each Spec in that family sets a
+// DispatcherKey like "find" or "show-body"; for those keys
+// buildRunners returns a wrapper that defers to
+// runGraphRead. This keeps the registry short: the Spec
+// itself carries the (Name, Args, Flags) that runGraphRead
+// needs, so duplicating them in this map would be redundant.
+//
+// The map is the single source of truth for "what code runs
+// for this DispatcherKey". cobra spec changes (Use, Parent,
+// Args, Flags) do not require touching this map; the wrappers
+// below resolve the spec from the cmd via cmd.Name() when
+// they need it. In practice, only the graph-read wrapper and
+// the mcp.install wrapper need the spec for arg decoding —
+// every other runner already has the cmd and can read flags
+// directly.
+func buildRunners() map[string]naming.CobraRunner {
+	daemon := func(name string) naming.CobraRunner {
+		return func(cmd *cobra.Command, args []string) error {
+			return runDaemon(name, cmd.Context(), cmd, args)
 		}
-		// Default: graph read.
-		return runGraphRead(ctx, cmd, spec, args)
 	}
+	graphRead := func(cmd *cobra.Command, args []string) error {
+		spec := lookupSpecByCmd(cmd)
+		if spec == nil {
+			return fmt.Errorf("internal: no spec matches %q", cmd.Name())
+		}
+		return runGraphRead(cmd.Context(), cmd, spec, args)
+	}
+	runners := map[string]naming.CobraRunner{
+		// ── top-level lifecycle ────────────────────────────────
+		"init":  func(cmd *cobra.Command, args []string) error { return runInit(cmd.Context(), cmd, args) },
+		"serve": func(cmd *cobra.Command, args []string) error { return runServe(cmd.Context(), cmd) },
+		"build": func(cmd *cobra.Command, args []string) error { return runBuild(cmd.Context(), cmd) },
+		"stats": func(cmd *cobra.Command, args []string) error { return runStats(cmd.Context(), cmd) },
+
+		// ── daemon controls (top-level) ────────────────────────
+		"start":   daemon("start"),
+		"stop":    daemon("stop"),
+		"status":  daemon("status"),
+		"restart": daemon("restart"),
+		"reload":  daemon("reload"),
+		"logs":    daemon("logs"),
+
+		// ── service subcommand group ───────────────────────────
+		"service.install":   func(cmd *cobra.Command, args []string) error { return runServiceInstall() },
+		"service.uninstall": func(cmd *cobra.Command, args []string) error { return runServiceUninstall() },
+		"service.status":    func(cmd *cobra.Command, args []string) error { return runServiceStatus(cmd) },
+
+		// ── mcp subcommand group ───────────────────────────────
+		"mcp.install": func(cmd *cobra.Command, args []string) error {
+			spec := lookupSpecByCmd(cmd)
+			return runMCPInstall(cmd.Context(), args, flagVals(cmd, spec))
+		},
+		"mcp.uninstall": func(cmd *cobra.Command, args []string) error { return runMCPUninstall(cmd.Context(), args) },
+		"mcp.test":      func(cmd *cobra.Command, args []string) error { return runMCPTest(cmd.Context(), cmd) },
+
+		// ── core subcommand group ──────────────────────────────
+		"core.install":   func(cmd *cobra.Command, args []string) error { return runCoreInstall(cmd.Context(), cmd, args) },
+		"core.list":      func(cmd *cobra.Command, args []string) error { return runCoreList(cmd.Context(), cmd) },
+		"core.uninstall": func(cmd *cobra.Command, args []string) error { return runCoreUninstall(cmd.Context(), cmd, args) },
+		"core.status":    func(cmd *cobra.Command, args []string) error { return runCoreStatus(cmd.Context(), cmd) },
+
+		// ── hidden / internal re-exec entry points ─────────────
+		// Hidden commands: the user cannot invoke them, but
+		// buildSubcommandTree still requires a runner entry.
+		// The supervisor flow (supervise start/stop/...) is
+		// handled inside the same hidden command by parsing
+		// args[0]; the runner delegates to runSupervise.
+		"_daemon":   func(cmd *cobra.Command, args []string) error { return runDaemonEntry(cmd) },
+		"supervise": func(cmd *cobra.Command, args []string) error { return runSupervise(cmd.Context(), args) },
+	}
+	// Wire every graph-read Spec to the shared graphRead
+	// wrapper. The set of graph-read DispatcherKeys is the
+	// list of Specs whose Name (the MCP tool name) is set —
+	// those are the Specs that have a handler in
+	// internal/handlers. Adding a new graph read means
+	// adding a Spec with Name!=""; the wiring is automatic.
+	for i := range naming.Specs {
+		s := &naming.Specs[i]
+		if s.Name == "" {
+			continue
+		}
+		if _, exists := runners[s.DispatcherKey]; exists {
+			continue
+		}
+		runners[s.DispatcherKey] = graphRead
+	}
+	return runners
 }
 
-// hiddenRunner is a stub for the hidden commands (daemon entry
-// point, supervisor control). Each has its own RunE supplied by
-// the relevant file. The cobra spec only carries the metadata.
-func hiddenRunner(spec *naming.Spec) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		switch spec.Use {
-		case "_daemon":
-			return runDaemonEntry(cmd)
-		case "supervise":
-			return runSupervise(cmd.Context(), args)
-		}
-		return fmt.Errorf("unhandled hidden command %q", spec.Use)
+// lookupSpecByCmd finds the Spec whose Use matches cmd.Name()
+// and Parent. Used by runners that need the spec for flag
+// decoding (currently only the mcp install path, which maps
+// kebab flags back to snake_case). Returns nil if not found;
+// callers handle nil gracefully.
+func lookupSpecByCmd(cmd *cobra.Command) *naming.Spec {
+	parent := ""
+	if cmd.Parent() != nil {
+		parent = cmd.Parent().Name()
 	}
+	for i := range naming.Specs {
+		s := &naming.Specs[i]
+		if s.Parent == parent && s.Use == cmd.Name() {
+			return s
+		}
+	}
+	return nil
 }
 
 // flagVals reads all flags declared in spec from cmd and returns

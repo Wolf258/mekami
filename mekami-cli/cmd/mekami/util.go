@@ -19,7 +19,7 @@ import (
 	"github.com/Wolf258/mekami-cli/internal/supervisor"
 )
 
-// namingArgMap is a tiny alias used in the mcp-install runner.
+// namingArgMap is a tiny alias used in the mcp install runner.
 type namingArgMap = naming.ArgMap
 
 // printJSON writes v as JSON to stdout followed by a newline. The

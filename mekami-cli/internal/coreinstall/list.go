@@ -6,11 +6,12 @@ import (
 	"github.com/Wolf258/mekami-api/api/v1"
 )
 
-// ListEntry is one row in `mekami core-list`. Loaded is true
-// when the frontend is registered in api.Global (i.e. the
-// running binary's blank imports included it); Missing is the
-// inverse and means the config asks for a language whose
-// blank import is not in the current binary.
+// ListEntry is one row in `mekami core list` and
+// `mekami core status`. Loaded is true when the frontend is
+// registered in api.Global (i.e. the running binary's blank
+// imports included it); Missing is the inverse and means the
+// config asks for a language whose blank import is not in the
+// current binary.
 type ListEntry struct {
 	Name      string `json:"name"`
 	Version   string `json:"version,omitempty"`
@@ -19,8 +20,11 @@ type ListEntry struct {
 	Builtin   bool   `json:"builtin,omitempty"`
 }
 
-// ListReport is the result of List(); used by `core-list` to
-// render the table and the JSON form.
+// ListReport is the result of List(); used by `core list` and
+// `core status` to render the table and the JSON form. The
+// shape is identical between the two commands — the difference
+// is only how the CLI formats the output (status prints an
+// extra summary line about missing indexers).
 type ListReport struct {
 	Indexers []ListEntry   `json:"indexers"`
 	Loaded   []string      `json:"loaded"`

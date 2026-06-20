@@ -21,7 +21,7 @@ import (
 //
 // The function is best-effort: every error is
 // logged to stderr and the caller continues. The
-// rationale is that `service-uninstall` is the last
+// rationale is that `service uninstall` is the last
 // step of a teardown: even if the supervisor is
 // wedged or its socket is missing, the follow-up
 // `disable --now` (Linux) or `launchctl unload`
@@ -63,7 +63,7 @@ func stopSupervisorAndDaemons() {
 // cleanupSupervisorRuntimeState removes the
 // supervisor's runtime files in the per-user state
 // directory. The intent is to leave a clean slate for
-// a future `service-install` (which would otherwise
+// a future `service install` (which would otherwise
 // find a stale supervisor.pid pointing at a dead
 // process, or a stale sentinel from a previous
 // uninstall that was interrupted before the sentinel
@@ -74,7 +74,7 @@ func stopSupervisorAndDaemons() {
 // but does not abort the cleanup. The state
 // directory itself is preserved because the
 // per-user `daemons.json` lives there; the next
-// `service-install` will use the same registry
+// `service install` will use the same registry
 // (and therefore the same set of daemons) as
 // before the uninstall. This is the "preserve
 // user intent" property that distinguishes a

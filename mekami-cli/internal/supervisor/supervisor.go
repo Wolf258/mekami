@@ -980,7 +980,7 @@ func (s *Supervisor) HandleQuit(_ context.Context) error {
 }
 
 // HandleQuitAll is the "hard uninstall" entry point.
-// It performs the steps `mekami service-uninstall`
+// It performs the steps `mekami service uninstall`
 // needs to leave the system clean:
 //
 //  1. Stop every registered daemon (graceful IPC
@@ -1000,7 +1000,7 @@ func (s *Supervisor) HandleQuit(_ context.Context) error {
 //
 // The function is best-effort: per-daemon stop errors
 // are logged but do not abort the uninstall. The
-// caller (the CLI's `service-uninstall`) is expected
+// caller (the CLI's `service uninstall`) is expected
 // to follow up with `disable --now` regardless of
 // the error returned here, so a partial failure still
 // results in a clean system after the next reboot.
@@ -1409,7 +1409,7 @@ func (c *daemonClient) fetchStatus(ctx context.Context) (DaemonView, error) {
 
 // ErrNotImplemented is returned by features that depend on
 // platform-specific behaviour we haven't wired up yet (e.g.
-// Windows service-install).
+// Windows service install).
 var ErrNotImplemented = errors.New("supervisor: not implemented on this platform")
 
 // stateDirSingleton is a tiny package-level pointer to the

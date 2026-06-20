@@ -258,7 +258,7 @@ func TestHandleQuitAll_AlreadyGoneIsNoop(t *testing.T) {
 
 // TestCleanupSupervisorRuntimeState_RemovesAllFiles
 // is the unit test for the cleanup helper used by
-// `service-uninstall`. The helper lives in
+// `service uninstall`. The helper lives in
 // cmd/mekami (with build tags), so we cover its
 // behaviour indirectly here by writing all the files
 // the helper is expected to delete, then calling

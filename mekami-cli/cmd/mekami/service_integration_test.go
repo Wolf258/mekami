@@ -2,7 +2,7 @@
 
 // Package mekami_integration contains end-to-end
 // tests for the supervisor / watchdog /
-// service-install (and service-uninstall) lifecycle. The tests are gated
+// service install (and service uninstall) lifecycle. The tests are gated
 // behind the `integration` build tag because they
 // require:
 //
@@ -145,11 +145,11 @@ func locateMekami(t *testing.T) string {
 // TestServiceLifecycle_InstallUninstallCleansState is
 // the happy-path integration test. It runs:
 //
-//  1. service-install  (writes the unit, enables it,
+//  1. service install  (writes the unit, enables it,
 //     starts the supervisor which spawns a watchdog);
 //  2. a short wait to let the supervisor settle;
 //  3. quit-all via the IPC client (simulating
-//     service-uninstall's IPC step);
+//     service uninstall's IPC step);
 //  4. a short wait to let the supervisor and
 //     watchdog exit;
 //  5. asserts that the runtime state files are
@@ -157,7 +157,7 @@ func locateMekami(t *testing.T) string {
 //     directly because `systemctl disable --now`
 //     is the racy part: it sends SIGKILL and we
 //     do not want the test to depend on its timing);
-//  6. service-uninstall's disable step (best
+//  6. service uninstall's disable step (best
 //     effort) and unit file removal.
 //
 // The test does not assert against the actual
@@ -174,10 +174,10 @@ func TestServiceLifecycle_InstallUninstallCleansState(t *testing.T) {
 	// command because that is what users run; the
 	// command itself is exercised by the unit
 	// tests in the supervisor package.
-	cmd := exec.Command(bin, "service-install")
+	cmd := exec.Command(bin, "service", "install")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("service-install: %v\n%s", err, out)
+		t.Fatalf("service install: %v\n%s", err, out)
 	}
 	t.Logf("install output:\n%s", out)
 	t.Cleanup(func() {
@@ -185,7 +185,7 @@ func TestServiceLifecycle_InstallUninstallCleansState(t *testing.T) {
 		// errors because the test is over and
 		// there is no useful recovery from a
 		// failed uninstall.
-		_ = exec.Command(bin, "service-uninstall").Run()
+		_ = exec.Command(bin, "service", "uninstall").Run()
 	})
 	// Step 2: let the supervisor settle. The unit
 	// runs `mekami supervise _run` which then
@@ -202,9 +202,9 @@ func TestServiceLifecycle_InstallUninstallCleansState(t *testing.T) {
 	}
 	// Step 3 + 4 + 5: trigger the uninstall
 	// pipeline. We do not call the CLI's
-	// `service-uninstall` because the unit's
+	// `service uninstall` because the unit's
 	// existence is racy (we created it via
-	// `service-install`); instead we call the
+	// `service install`); instead we call the
 	// IPC quit-all directly, then run the cleanup
 	// helper, then remove the unit. This is the
 	// observable path the CLI takes; the
@@ -250,7 +250,7 @@ func TestServiceLifecycle_InstallUninstallCleansState(t *testing.T) {
 	// deliberately skips `systemctl disable`
 	// because that requires a live user bus,
 	// which the test may have lost by now. The
-	// unit file is what `service-install`
+	// unit file is what `service install`
 	// created; we just unlink it.
 	unitPath := filepath.Join(systemdUserDir(), supervisorUnitName)
 	if err := os.Remove(unitPath); err != nil && !os.IsNotExist(err) {
@@ -272,12 +272,12 @@ func TestWatchdogSentinel_ExitsImmediately(t *testing.T) {
 	skipIfNoSystemdUser(t)
 	withTempXDG(t)
 	bin := locateMekami(t)
-	cmd := exec.Command(bin, "service-install")
+	cmd := exec.Command(bin, "service", "install")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("service-install: %v\n%s", err, out)
+		t.Fatalf("service install: %v\n%s", err, out)
 	}
 	t.Cleanup(func() {
-		_ = exec.Command(bin, "service-uninstall").Run()
+		_ = exec.Command(bin, "service", "uninstall").Run()
 		_ = os.Remove(filepath.Join(systemdUserDir(), supervisorUnitName))
 	})
 	// Wait for the supervisor.

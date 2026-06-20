@@ -42,7 +42,7 @@ func TestRender_HeaderExplainsDevSplit(t *testing.T) {
 	if !strings.Contains(got, "dev-allgen") {
 		t.Errorf("header should mention dev-allgen:\n%s", got)
 	}
-	if !strings.Contains(got, "core-install") {
-		t.Errorf("header should mention core-install as the prod path:\n%s", got)
+	if !strings.Contains(got, "core install") {
+		t.Errorf("header should mention core install as the prod path:\n%s", got)
 	}
 }
