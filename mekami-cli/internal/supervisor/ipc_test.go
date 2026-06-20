@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Wolf258/mekami-cli/internal/testutil"
 )
 
 // stubHandler is a minimal Handler used by IPC tests. It records
@@ -76,6 +78,7 @@ func startStubServer(t *testing.T, h Handler) (*ipcServer, string) {
 }
 
 func TestIPC_PingStatusList(t *testing.T) {
+	requireIPC(t)
 	h := &stubHandler{
 		listRet:  []string{"/a", "/b"},
 		statusVS: []DaemonView{{Root: "/a", State: "running", PID: 1234}},
@@ -105,6 +108,7 @@ func TestIPC_PingStatusList(t *testing.T) {
 }
 
 func TestIPC_StartStopReloadRestart(t *testing.T) {
+	requireIPC(t)
 	view := &DaemonView{Root: "/a", State: "running", PID: 42}
 	h := &stubHandler{
 		startRet:   view,
@@ -131,6 +135,7 @@ func TestIPC_StartStopReloadRestart(t *testing.T) {
 }
 
 func TestIPC_UnknownCommand(t *testing.T) {
+	requireIPC(t)
 	_, sock := startStubServer(t, &stubHandler{})
 	cli := &Client{SocketPath: sock, Timeout: 1 * time.Second}
 	resp, err := cli.Call(context.Background(), Request{Cmd: "nope"})
@@ -146,6 +151,7 @@ func TestIPC_UnknownCommand(t *testing.T) {
 }
 
 func TestIPC_QuitAll(t *testing.T) {
+	requireIPC(t)
 	h := &stubHandler{}
 	_, sock := startStubServer(t, h)
 	cli := &Client{SocketPath: sock, Timeout: 1 * time.Second}
@@ -189,13 +195,7 @@ func TestStateDir_Permissions(t *testing.T) {
 	if err := EnsureStateDir(); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(StateDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o700 {
-		t.Fatalf("state dir perms = %o, want 0700", info.Mode().Perm())
-	}
+	testutil.AssertSecureDirPerms(t, StateDir())
 }
 
 // EnsureStartPayloadJSONIsStable guards against accidental field
@@ -234,6 +234,7 @@ func TestSentinelIs(t *testing.T) {
 // Watch the socket: ensure the listener actually accepts
 // connections from a different goroutine.
 func TestIPCAcceptsConcurrentClients(t *testing.T) {
+	requireIPC(t)
 	h := &stubHandler{listRet: []string{"/a"}}
 	_, sock := startStubServer(t, h)
 	var wg sync.WaitGroup
@@ -257,6 +258,7 @@ func TestIPCAcceptsConcurrentClients(t *testing.T) {
 // helper had to set XDG_CONFIG_HOME to make custom paths
 // work; that's no longer necessary.
 func TestIPC_StartStubServer_AcceptsArbitrarySocketPath(t *testing.T) {
+	requireIPC(t)
 	dir := shortSockDir(t)
 	sock := filepath.Join(dir, "deeply", "nested", "sub.sock")
 	h := &stubHandler{}

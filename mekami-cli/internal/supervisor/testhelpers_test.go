@@ -8,6 +8,17 @@ import (
 	"github.com/Wolf258/mekami-cli/internal/testutil"
 )
 
+// requireIPC skips the test when the current Go build does
+// not support the IPC transport the supervisor uses on this
+// platform (named pipes on Windows). It is a no-op on Unix
+// and on Windows builds that have the "pipe" net package
+// compiled in. The check is cheap: one net.Listen that we
+// close immediately.
+func requireIPC(t *testing.T) {
+	t.Helper()
+	testutil.SkipIfNoNamedPipe(t)
+}
+
 // filepathJoinTemp returns a path inside t.TempDir(). It's a
 // convenience for tests that need a stable file path.
 func filepathJoinTemp(t *testing.T) string {

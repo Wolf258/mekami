@@ -117,3 +117,13 @@ func shortSockDir(t *testing.T) string {
 	t.Helper()
 	return testutil.ShortSockDir(t)
 }
+
+// requireIPC skips the test when the current Go build does
+// not support the IPC transport the watch package uses on
+// this platform (named pipes on Windows). It is a no-op on
+// Unix and on Windows builds that have the "pipe" net
+// package compiled in.
+func requireIPC(t *testing.T) {
+	t.Helper()
+	testutil.SkipIfNoNamedPipe(t)
+}
