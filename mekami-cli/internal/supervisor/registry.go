@@ -13,15 +13,35 @@ import (
 )
 
 // StateDir is the per-user directory the supervisor uses for its
-// socket, pid file, lock, and daemons.json. Defaults to
-// $XDG_CONFIG_HOME/mekami/supervisor (or ~/.config/mekami/supervisor
-// if XDG_CONFIG_HOME is unset).
+// socket, pid file, lock, and daemons.json.
+//
+// Resolution order:
+//
+//  1. $XDG_CONFIG_HOME/mekami/supervisor (Unix only; honoured
+//     when set so power users can redirect the state dir without
+//     touching Go code).
+//  2. os.UserConfigDir()/mekami/supervisor. On Linux this is
+//     ~/.config; on macOS it is ~/Library/Application Support;
+//     on Windows it is %APPDATA% (C:\Users\<user>\AppData\Roaming).
+//  3. ~/.mekami/supervisor — last-resort fallback when both
+//     env and UserConfigDir fail (rare; only on stripped-down
+//     systems without a home directory).
+//
+// On Windows the resulting path is used as the basename for a
+// named pipe (see ipc_transport_windows.go); the directory
+// itself still holds the registry, pid file, and sentinel.
 func StateDir() string {
 	if x := os.Getenv("XDG_CONFIG_HOME"); x != "" {
 		return filepath.Join(x, "mekami", "supervisor")
 	}
+	if cfg, err := os.UserConfigDir(); err == nil && cfg != "" {
+		return filepath.Join(cfg, "mekami", "supervisor")
+	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "mekami", "supervisor")
+	if home != "" {
+		return filepath.Join(home, ".mekami", "supervisor")
+	}
+	return ".mekami/supervisor"
 }
 
 // SocketPath is the canonical Unix socket the supervisor listens

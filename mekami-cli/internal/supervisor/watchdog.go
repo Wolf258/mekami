@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -53,7 +52,7 @@ func WatchdogHealth(pidPath, sockPath string) (healthy bool, gone bool) {
 	// PID is alive; check the socket. We use a short
 	// timeout because a wedged supervisor may accept
 	// the connection but never reply.
-	conn, err := net.DialTimeout("unix", sockPath, 2*time.Second)
+	conn, err := dialIPC(sockPath, 2*time.Second)
 	if err != nil {
 		// Socket is the more reliable liveness
 		// signal: if the PID is alive but the socket
@@ -194,7 +193,7 @@ func watchdogRunTuned(ctx context.Context, stateDir string, respawn func() error
 			// watchdog.
 			pid, _ := readWatchdogPID(pidPath)
 			if pid > 0 {
-				_ = syscall.Kill(pid, syscall.SIGKILL)
+				_ = killProcess(pid, syscall.SIGKILL)
 			}
 			_ = os.Remove(sockPath)
 			if err := respawn(); err != nil {

@@ -150,7 +150,10 @@ func SignalWatchdog() bool {
 	if err != nil {
 		return false
 	}
-	if err := proc.Signal(syscall.SIGTERM); err != nil {
+	// On Unix this delivers SIGTERM (polite stop). On Windows
+	// os.Kill maps to TerminateProcess, which is unconditional;
+	// the watchdog path there is the IPC stop channel anyway.
+	if err := proc.Signal(os.Kill); err != nil {
 		// ESRCH means the process is already
 		// gone, which is what we want anyway.
 		if errors.Is(err, syscall.ESRCH) {

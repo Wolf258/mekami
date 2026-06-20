@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"syscall"
 	"time"
 
 	"github.com/Wolf258/mekami-cli/internal/config"
@@ -103,9 +102,9 @@ func SpawnDaemon(spec SpawnSpec) (pid int, err error) {
 		// _MEKAMI_DAEMON_FALLBACK when set.
 		cmd.Env = append(cmd.Env, "_MEKAMI_DAEMON_FALLBACK="+spec.FallbackOverride)
 	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Stdin = nil
-	cmd.Stdout = nil
+	cmd.SysProcAttr = detachSysProcAttr()
+	cmd.Stdin = devNullFile()
+	cmd.Stdout = devNullFile()
 	// Persist the daemon child's stderr so a crash during
 	// startup (e.g. unknown subcommand, missing env, panic
 	// before the file logger is up) leaves a forensic trace

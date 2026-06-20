@@ -7,7 +7,12 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: test-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -16,19 +21,33 @@ jobs:
           cache-dependency-path: mekami-cli/go.sum
       - name: Test mekami-cli
         working-directory: mekami-cli
-        run: go test ./...
+        run: go test -short ./...
 
   build:
+    name: build-${{ matrix.os }}
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
           cache-dependency-path: mekami-cli/go.sum
-      - name: Build
+      # ./build.sh is the project's release script; it is
+      # POSIX-shell and only meant to be run on Linux/macOS.
+      # On Windows we use a plain go build so the matrix stays
+      # green without changing the script.
+      - name: Build (unix)
+        if: matrix.os != 'windows-latest'
         run: ./build.sh
+      - name: Build (windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: mekami-cli
+        run: go build ./...
       # The Mekami repo is the source code of the mekami binary,
       # not a project for the binary to index. ./mekami build and
       # ./mekami mcp-test require a .mekami/config.json in the cwd

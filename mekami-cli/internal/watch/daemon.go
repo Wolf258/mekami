@@ -83,8 +83,14 @@ func DaemonEntryPoint(ctx context.Context) error {
 	defer logFile.Close()
 	verbose := cfg.LogLevel == "verbose"
 
-	// Install signal handlers.
-	sigCtx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	// Install signal handlers. On Unix both SIGINT and SIGTERM
+	// are delivered; on Windows only os.Interrupt is deliverable
+	// to a non-console-attached process, so we use os.Interrupt
+	// here and rely on SIGTERM being translated to os.Kill by
+	// the runtime. We keep the os.Interrupt + syscall.SIGTERM
+	// pair so Unix still gets the SIGTERM semantics the
+	// supervisor's stop path expects.
+	sigCtx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	stats := &Stats{}
@@ -256,7 +262,7 @@ func startHeartbeatAndWatchdog(sigCtx context.Context, root string, logFile *fil
 				if supPID <= 0 {
 					continue
 				}
-				if err := syscall.Kill(supPID, syscall.Signal(0)); err != nil {
+				if err := checkProcessAlive(supPID); err != nil {
 					orphanChecks++
 					if orphanChecks == 1 || orphanChecks%orphanLogEvery == 0 {
 						logFile.writeLine(fmt.Sprintf(
@@ -266,11 +272,16 @@ func startHeartbeatAndWatchdog(sigCtx context.Context, root string, logFile *fil
 					if cfg := readSelfTerminateOnOrphan(); cfg > 0 && time.Duration(orphanChecks)*HeartbeatInterval >= cfg {
 						logFile.writeLine(fmt.Sprintf(
 							"orphan: self-terminate after %s without supervisor", cfg))
-						// Reuse the daemon's stop path: send
-						// SIGTERM to our own PID. The signal
-						// handler in DaemonEntryPoint will
-						// trigger the normal teardown.
-						_ = syscall.Kill(os.Getpid(), syscall.SIGTERM)
+						// Reuse the daemon's stop path: deliver
+						// os.Interrupt to our own PID so the
+						// signal handler in DaemonEntryPoint
+						// triggers the normal teardown. Using
+						// os.Interrupt (not syscall.SIGTERM)
+						// keeps the call portable: on Windows
+						// os.Interrupt is the only signal
+						// os/signal can deliver to a non-
+						// console-attached process.
+						_ = terminateSelf()
 						return
 					}
 				} else {

@@ -33,7 +33,7 @@ func TestSpawnDaemon_ForkHappens(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		if processAlive(pid) {
-			_ = syscall.Kill(pid, syscall.SIGKILL)
+			_ = killProcess(pid, syscall.SIGKILL)
 		}
 	})
 }

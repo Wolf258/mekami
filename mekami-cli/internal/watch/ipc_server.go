@@ -75,7 +75,7 @@ func startIPCServer(socketPath string, root string, stats *Stats, onStop func(),
 	}
 	// Remove any stale socket from a previous crash.
 	_ = os.Remove(socketPath)
-	ln, err := net.Listen("unix", socketPath)
+	ln, err := listenIPC(socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("listen: %w", err)
 	}

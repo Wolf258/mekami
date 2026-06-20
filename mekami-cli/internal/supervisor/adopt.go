@@ -98,7 +98,7 @@ func adoptDaemon(root string) (AdoptResult, error) {
 	// Ping the daemon over its Unix socket. The wire
 	// format is the same one the watch.Client uses
 	// (line-delimited JSON, "ping" command, "ok" reply).
-	conn, err := net.DialTimeout("unix", sockPath, 2*time.Second)
+	conn, err := dialIPC(sockPath, 2*time.Second)
 	if err != nil {
 		return AdoptResult{}, ErrNotAnOrphan
 	}

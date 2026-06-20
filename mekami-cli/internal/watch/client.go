@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -55,10 +54,7 @@ func (c *Client) Call(ctx context.Context, req Request) (Response, error) {
 		}
 		return Response{}, fmt.Errorf("stat socket: %w", err)
 	}
-	dialCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	var d net.Dialer
-	conn, err := d.DialContext(dialCtx, "unix", c.SocketPath)
+	conn, err := dialIPC(c.SocketPath, timeout)
 	if err != nil {
 		return Response{}, fmt.Errorf("dial: %w", err)
 	}

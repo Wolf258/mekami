@@ -998,10 +998,7 @@ func startSupervisorProcess() error {
 	}
 	cmd := exec.Command(self, "supervise", "_run")
 	cmd.Env = append(os.Environ(), "_MEKAMI_SUPERVISOR=1")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Stdin = nil
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	configureDetachedProcess(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("fork: %w", err)
 	}
@@ -1024,10 +1021,7 @@ func startWatchdogProcess() error {
 	}
 	cmd := exec.Command(self, "supervise", "_watchdog")
 	cmd.Env = append(os.Environ(), "_MEKAMI_WATCHDOG=1")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	cmd.Stdin = nil
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	configureDetachedProcess(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("fork watchdog: %w", err)
 	}
@@ -1085,7 +1079,7 @@ func runWatchdogMain(ctx context.Context) error {
 	// for the explicit `pkill -TERM mekami` path
 	// (e.g. `service uninstall`'s fast path) and for
 	// tests that cancel the watchdog via signal.
-	sigCtx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT)
+	sigCtx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, os.Interrupt)
 	defer cancel()
 	return supervisor.WatchdogRun(sigCtx, supervisor.StateDir(), startSupervisorProcess)
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -449,7 +448,7 @@ func (s *Supervisor) Start(ctx context.Context, spec SpawnSpec, policy RestartPo
 		d.CrashCount++
 		d.LastCrashAt = time.Now()
 		s.mu.Unlock()
-		_ = syscall.Kill(pid, syscall.SIGTERM)
+		_ = killProcess(pid, syscall.SIGTERM)
 		return nil, fmt.Errorf("daemon for %s did not start within %s", spec.Root, s.StartProbeTimeout)
 	}
 
@@ -612,22 +611,9 @@ func (s *Supervisor) waitProcess(absRoot string, pid int, done chan struct{}) {
 	}
 }
 
-// processAlive is a tiny helper around signal 0. Mirrors the
-// one in internal/watch/paths.go; duplicated here to keep the
-// package free of that dependency.
-func processAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	if err := proc.Signal(syscall.Signal(0)); err != nil {
-		return false
-	}
-	return true
-}
+// processAlive is implemented per-platform in
+// proc_alive_unix.go (signal 0) and proc_alive_windows.go
+// (OpenProcess + GetExitCodeProcess).
 
 // Stop asks the daemon at root to shut down. force=true skips
 // the polite IPC and goes straight to SIGTERM.
@@ -657,7 +643,7 @@ func (s *Supervisor) Stop(ctx context.Context, root string, force bool) error {
 	}
 	// SIGTERM after a brief grace period; SIGKILL on timeout.
 	if processAlive(pid) {
-		_ = syscall.Kill(pid, syscall.SIGTERM)
+		_ = killProcess(pid, syscall.SIGTERM)
 	}
 	deadline := time.Now().Add(s.StopTimeout)
 	for time.Now().Before(deadline) {
@@ -667,7 +653,7 @@ func (s *Supervisor) Stop(ctx context.Context, root string, force bool) error {
 		time.Sleep(50 * time.Millisecond)
 	}
 	if processAlive(pid) {
-		_ = syscall.Kill(pid, syscall.SIGKILL)
+		_ = killProcess(pid, syscall.SIGKILL)
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -1329,7 +1315,7 @@ func newDaemonClient(root string) *daemonClient {
 // Mirrors watch.Client.Call but is local to the supervisor so
 // we don't depend on watch's exported surface.
 func (c *daemonClient) CallRaw(cmd string, payload []byte) ([]byte, error) {
-	conn, err := net.DialTimeout("unix", c.socketPath, 3*time.Second)
+	conn, err := dialIPC(c.socketPath, 3*time.Second)
 	if err != nil {
 		return nil, err
 	}

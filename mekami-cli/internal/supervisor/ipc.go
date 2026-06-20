@@ -149,7 +149,7 @@ func startIPCServerAt(socketPath string, handler Handler) (*ipcServer, error) {
 	}
 	// Remove any stale socket from a previous run.
 	_ = os.Remove(socketPath)
-	ln, err := net.Listen("unix", socketPath)
+	ln, err := listenIPC(socketPath)
 	if err != nil {
 		return nil, fmt.Errorf("listen: %w", err)
 	}
@@ -367,10 +367,7 @@ func (c *Client) Call(ctx context.Context, req Request) (Response, error) {
 		}
 		return Response{}, fmt.Errorf("stat socket: %w", err)
 	}
-	dialCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	var d net.Dialer
-	conn, err := d.DialContext(dialCtx, "unix", c.SocketPath)
+	conn, err := dialIPC(c.SocketPath, timeout)
 	if err != nil {
 		return Response{}, fmt.Errorf("dial: %w", err)
 	}
