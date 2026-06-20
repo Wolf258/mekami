@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -267,10 +268,20 @@ func ListPackage(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 }
 
 // resolvePackageID normalizes the user-supplied package_id. It accepts
-// either the canonical Go import path (e.g. "github.com/Wolf258/mekami-cli/internal/mcp")
-// or a short suffix (e.g. "internal/mcp", "mcp"). For short suffixes it
-// tries to disambiguate against the indexed modules; if more than one
-// module claims the suffix it returns an error listing the candidates.
+// the canonical Go import path (e.g. "github.com/Wolf258/mekami-cli/internal/mcp"),
+// a module-relative suffix (e.g. "internal/mcp" against a single module),
+// or a bare last-segment name (e.g. "mcp"). Resolution order:
+//
+//  1. If the input is already a known canonical package_id, return it.
+//  2. Otherwise, for each indexed module, try "<module>/<input>".
+//  3. Otherwise, search the packages table for an exact match or a
+//     suffix match ("/<input>"). This closes the gap where two
+//     packages share the same last segment across different modules
+//     (e.g. "internal/mcp" and "cmd/mcp") and the user passes "mcp".
+//
+// If exactly one candidate survives any of the passes, return it. If
+// more than one survives, return an error listing the candidates so
+// the caller can disambiguate (e.g. via list_modules).
 func resolvePackageID(ctx context.Context, s *store.Store, input string) (string, error) {
 	if input == "" {
 		return "", fmt.Errorf("package_id is required")
@@ -278,16 +289,9 @@ func resolvePackageID(ctx context.Context, s *store.Store, input string) (string
 	if isCanonicalPackageID(ctx, s, input) {
 		return input, nil
 	}
-	mods, err := queries.ListModules(ctx, s)
+	matches, err := resolvePackageIDCandidates(ctx, s, input)
 	if err != nil {
 		return input, err
-	}
-	var matches []string
-	for _, m := range mods {
-		candidate := m.Path + "/" + input
-		if isCanonicalPackageID(ctx, s, candidate) {
-			matches = append(matches, candidate)
-		}
 	}
 	switch len(matches) {
 	case 0:
@@ -295,8 +299,64 @@ func resolvePackageID(ctx context.Context, s *store.Store, input string) (string
 	case 1:
 		return matches[0], nil
 	default:
+		sort.Strings(matches)
 		return "", fmt.Errorf("ambiguous package_id %q; matches: %s", input, strings.Join(matches, ", "))
 	}
+}
+
+// resolvePackageIDCandidates collects every canonical package_id that
+// could match the user-supplied input, in two passes:
+//
+//   - Pass A: <module_path>/<input> (covers "internal/mcp" and similar
+//     relative suffixes against a single module).
+//   - Pass B: exact match on package_id OR suffix match "/<input>"
+//     against the packages table (covers the bare last-segment case,
+//     e.g. "mcp" matching both ".../internal/mcp" and ".../cmd/mcp").
+//
+// The returned slice is deduplicated and order is not guaranteed;
+// callers must sort before formatting.
+func resolvePackageIDCandidates(ctx context.Context, s *store.Store, input string) ([]string, error) {
+	seen := make(map[string]struct{})
+	add := func(candidate string) {
+		if candidate == "" {
+			return
+		}
+		if isCanonicalPackageID(ctx, s, candidate) {
+			seen[candidate] = struct{}{}
+		}
+	}
+
+	mods, err := queries.ListModules(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range mods {
+		add(m.Path + "/" + input)
+	}
+
+	rows, err := s.DB().QueryContext(ctx,
+		`SELECT package_id FROM packages WHERE package_id = ? OR package_id LIKE ?`,
+		input, "%/"+input)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var pid string
+		if err := rows.Scan(&pid); err != nil {
+			return nil, err
+		}
+		seen[pid] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	out := make([]string, 0, len(seen))
+	for pid := range seen {
+		out = append(out, pid)
+	}
+	return out, nil
 }
 
 // isCanonicalPackageID reports whether id is a known package_id in the
