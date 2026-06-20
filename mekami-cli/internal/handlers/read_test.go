@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Wolf258/mekami-core/model"
-	"github.com/Wolf258/mekami-core/store"
+	"github.com/Wolf258/mekami-cli/internal/core/model"
+	"github.com/Wolf258/mekami-cli/internal/core/store"
 )
 
 type testStore struct {

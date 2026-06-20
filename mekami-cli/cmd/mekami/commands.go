@@ -23,9 +23,9 @@ import (
 	"github.com/Wolf258/mekami-cli/internal/supervisor"
 	"github.com/Wolf258/mekami-cli/internal/watch"
 	"github.com/Wolf258/mekami-api/api/v1"
-	"github.com/Wolf258/mekami-core/ingest"
-	"github.com/Wolf258/mekami-core/queries"
-	"github.com/Wolf258/mekami-core/store"
+	"github.com/Wolf258/mekami-cli/internal/core/ingest"
+	"github.com/Wolf258/mekami-cli/internal/core/queries"
+	"github.com/Wolf258/mekami-cli/internal/core/store"
 	"github.com/spf13/cobra"
 )
 

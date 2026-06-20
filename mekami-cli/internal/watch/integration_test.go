@@ -40,7 +40,7 @@ import (
 
 	_ "github.com/Wolf258/mekami-core-go"
 
-	"github.com/Wolf258/mekami-core/ingest"
+	"github.com/Wolf258/mekami-cli/internal/core/ingest"
 )
 
 // ingestBuild is a thin shim around ingest.Build for end-to-end

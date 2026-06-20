@@ -18,6 +18,17 @@ substring search inside function bodies, comments, log strings, or
 any arbitrary text, use `mekami find-text` (or the MCP
 `find_text` tool) or your editor's read tool.
 
+## Repository layout
+
+The whole `mekami` binary lives in this repo as a single Go
+module under `mekami-cli/`. The indexing pipeline that used to
+ship as a separate `github.com/Wolf258/mekami-core` module now
+lives at `mekami-cli/internal/core/`. The two external
+repositories that are still consumed by version are:
+
+- [`Wolf258/mekami-api`](https://github.com/Wolf258/mekami-api) — the `api.Frontend` interface contract that every language core implements.
+- [`Wolf258/mekami-core-go`](https://github.com/Wolf258/mekami-core-go) — the Go-language frontend, registered as a blank import via the generated `mekami-cli/internal/core/frontend/all_gen/all_gen.go`.
+
 ## Features
 
 - **Incremental indexing** — files are fingerprinted with
@@ -466,7 +477,7 @@ and is **not** bundled by default. After cloning, run
 and rebuild. Additional languages — Rust, C, etc. — follow the
 same shape: a standalone repo at
 `github.com/Wolf258/mekami-core-<lang>` that depends only on
-`mekami-core/api/v1` to register itself.
+`github.com/Wolf258/mekami-api/api/v1` to register itself.
 
 Project-wide installation is driven by `.mekami/config.json`:
 
@@ -488,8 +499,8 @@ for it yet — the build still tracks it, and a later
 version. `mekami core install <lang>[@<version>]` resolves the
 version via the Go module proxy (`go list -m -versions`),
 writes the entry to `indexers`, and regenerates
-`mekami-core/frontend/all_gen/all_gen.go` with a fresh blank
-import. `mekami core list` and `mekami core status` show the
+`mekami-cli/internal/core/frontend/all_gen/all_gen.go` with a
+fresh blank import. `mekami core list` and `mekami core status` show the
 indexer set requested by the config versus what the running
 binary has registered (frontends that are listed but whose blank
 import is missing are reported as `missing`).
@@ -831,10 +842,10 @@ batch / file / error counters to its log.
 
 - **One shipped language frontend (Go).** The architecture
   supports additional languages (see
-  `internal/graph/ingest/frontend/README.md`), but no frontend is
+  `internal/core/frontend/README.md`), but no frontend is
   bundled in the binary by default. Add a frontend by publishing a
   new module at `github.com/Wolf258/mekami-core-<lang>`, depending
-  on `mekami-core/api/v1`, and registering via
+  on `github.com/Wolf258/mekami-api/api/v1`, and registering via
   `mekami core install <lang>`.
 - **No body text in the index.** Mekami only indexes symbol
   names and reference edges. For substring search inside function

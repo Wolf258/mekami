@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Wolf258/mekami-core/model"
+	"github.com/Wolf258/mekami-cli/internal/core/model"
 )
 
 // JSON encodes v as an indented JSON string. If v is already a string

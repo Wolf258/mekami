@@ -10,11 +10,11 @@ contributors must follow when adding new tests.
 - Two levels: **unit** (default `go test`) and **integration**
   (build tag `integration`).
 - Go modules in this repo:
-  - `mekami-cli/` (in this workspace, primary)
-  - `mekami-core/` (in this workspace, primary)
-  - `mekami-api/` (external, pulled from module proxy unless you
-    use the e2e workspace template)
-  - `mekami-core-go/` (external, same)
+  - `mekami-cli/` (in this workspace, primary; contains
+    `internal/core/` which used to be the standalone
+    `mekami-core` module)
+  - `mekami-api/` (external, pulled from module proxy)
+  - `mekami-core-go/` (external, pulled from module proxy)
 
 ## Running the suite
 
@@ -24,13 +24,13 @@ From the repo root, with the committed `go.work`:
 
 ```
 go env GOWORK
-go test -short ./mekami-cli/... ./mekami-core/...
+go test -short ./mekami-cli/...
 ```
 
 `go test -short ./...` from the repo root is rejected by
 Go because the root directory is not itself a module —
-the workspace only lists `./mekami-cli` and `./mekami-core`
-as modules. Pass the patterns explicitly.
+the workspace only lists `./mekami-cli` as a module. Pass
+the pattern explicitly.
 
 This is what CI runs and what the AUR `check()` runs. It is fast
 (seconds), hermetic, and exercises every package except those
@@ -46,7 +46,7 @@ go test -count=1 -run '^TestResolveLang$' ./mekami-cli/cmd/mekami/
 To run with the race detector:
 
 ```
-go test -race ./mekami-core/... ./mekami-cli/...
+go test -race ./mekami-cli/...
 ```
 
 ### Integration tests
@@ -54,36 +54,26 @@ go test -race ./mekami-core/... ./mekami-cli/...
 Integration tests live behind the `integration` build tag. The
 default `go test` does not compile them.
 
-For most integration tests you do not need the e2e workspace — they
-are pure Go and run against `mekami-core-go` via the module proxy:
+For most integration tests you do not need a local clone of
+the external cores — they are pure Go and run against
+`mekami-core-go` via the module proxy:
 
 ```
-go test -tags integration ./mekami-core/integration_test/...
+go test -tags integration ./mekami-cli/internal/core/integration_test/...
 go test -tags integration ./mekami-cli/internal/watch/...
 ```
 
-For the full set (including the systemd service-manager round-trip
-in `service_integration_test.go`), clone the two external repos as
-siblings of `Mekami/` and switch to the e2e workspace:
-
-```
-git clone https://example.com/mekami-api    ../mekami-api
-git clone https://example.com/mekami-core-go ../mekami-core-go
-cp go.work.e2e.example go.work
-go work sync
-go test -tags integration ./...
-rm go.work go.work.sum
-```
-
-See `go.work.e2e.README.md` for the full workflow.
+The service-manager round-trip in `service_integration_test.go`
+also lives in the same module and uses the same `integration`
+build tag.
 
 ## Build tags
 
 | Tag | Files | Purpose |
 |---|---|---|
-| `integration` | 20 in `mekami-core/integration_test/`, 1 in `mekami-cli/internal/watch/integration_test.go`, 1 in `mekami-cli/cmd/mekami/service_integration_test.go` | End-to-end tests that need a real `mekami-core-go` parser, the file system, or a live user bus. |
+| `integration` | 20 in `mekami-cli/internal/core/integration_test/`, 1 in `mekami-cli/internal/watch/integration_test.go`, 1 in `mekami-cli/cmd/mekami/service_integration_test.go` | End-to-end tests that need a real `mekami-core-go` parser, the file system, or a live user bus. |
 | `integration && linux` | `mekami-cli/cmd/mekami/service_integration_test.go` | Service-manager round-trip; depends on a live systemd user bus, so it is Linux-only. |
-| `!integration` | `mekami-core/ingest_test/{setup,stub_frontend}_test.go` | The opposite of `integration`. Wires the stub Go frontend so the unit tests can run without the real `mekami-core-go` package. |
+| `!integration` | `mekami-cli/internal/core/ingest_test/{setup,stub_frontend}_test.go` | The opposite of `integration`. Wires the stub Go frontend so the unit tests can run without the real `mekami-core-go` package. |
 
 The build-tag form is the modern `//go:build` (Go 1.17+). We do
 not keep the legacy `// +build` form; the project targets Go 1.26
@@ -93,13 +83,13 @@ and there is no compatibility reason to.
 
 | Module | Unit | Integration | Notes |
 |---|---|---|---|
-| `mekami-core/store` | yes | — | Upsert / upsert-parent round-trips. |
-| `mekami-core/queries` | yes | — | Stats query helper. |
-| `mekami-core/path` | yes | — | Error-wrap table tests. |
-| `mekami-core/grep` | yes | — | grep matcher. |
-| `mekami-core/ingest_test` | yes (`!integration`) | — | Stub frontend, hermetic. |
-| `mekami-core/integration_test` | — | yes (20) | Real `mekami-core-go`, full build graph, prune, refs, mcp polish, etc. |
-| `mekami-core/scripts/dev-allgen` | yes | — | `all_gen.go` regenerator. |
+| `mekami-cli/internal/core/store` | yes | — | Upsert / upsert-parent round-trips. |
+| `mekami-cli/internal/core/queries` | yes | — | Stats query helper. |
+| `mekami-cli/internal/core/path` | yes | — | Error-wrap table tests. |
+| `mekami-cli/internal/core/grep` | yes | — | grep matcher. |
+| `mekami-cli/internal/core/ingest_test` | yes (`!integration`) | — | Stub frontend, hermetic. |
+| `mekami-cli/internal/core/integration_test` | — | yes (20) | Real `mekami-core-go`, full build graph, prune, refs, mcp polish, etc. |
+| `mekami-cli/internal/core/scripts/dev-allgen` | yes | — | `all_gen.go` regenerator. |
 | `mekami-cli/cmd/mekami` | yes | yes (`integration && linux`) | resolveLang, resolveInitLangs, mergeIndexers, runInit, runBuild, service commands. |
 | `mekami-cli/internal/config` | yes | — | Default, Load, Validate, OnStartAction, ShouldLog, Indexers. |
 | `mekami-cli/internal/coreinstall` | yes | — | SplitLangRef, IsValidLang, NormalizeVersion, HighestVersion, List, Gen. |
@@ -147,23 +137,24 @@ too.
 
 Helpers that are reused across packages live in:
 
-- `mekami-core/testutil/helpers.go` (production package, not
-  `_test.go`). Exposes `MustMkdir`, `MustWrite`,
+- `mekami-cli/internal/core/testutil/helpers.go` (production
+  package, not `_test.go`). Exposes `MustMkdir`, `MustWrite`,
   `WriteModuleFiles`, `OpenStoreForTest`, `QueriesStatsForTest`.
   Black-box tests import it the same way production code does.
 - `mekami-cli/internal/supervisor/testhelpers_test.go` and
   `mekami-cli/internal/watch/testhelpers_test.go` for
   package-local helpers (fsnotify shim, fake daemons, stub
-  IPC servers, and the `shortSockDir` helper described
-  below).
-- `mekami-core/integration_test/bridge_test.go:buildTestGraph`
+  IPC servers, and a thin wrapper around `testutil.ShortSockDir`
+  described below).
+- `mekami-cli/internal/core/integration_test/bridge_test.go:buildTestGraph`
   is the canonical "build a graph from a Go source blob"
   helper used by most integration tests.
 
-The supervisor package also exposes `shortSockDir(t)` in
-`testhelpers_test.go`. Tests that bind a Unix socket must
-use it instead of `t.TempDir()` as the parent of the
-socket path. On macOS the runtime temp dir lives under
+Tests that bind a Unix socket must use `ShortSockDir(t)` from
+`mekami-cli/internal/testutil/sockdir.go` (re-exported as
+`shortSockDir(t)` from the per-package test helpers) instead
+of `t.TempDir()` as the parent of the socket path. On macOS
+the runtime temp dir lives under
 `/var/folders/.../T/<name><digits>/<digits>/`, and once you
 append `.mekami/watcher.sock` the full path exceeds the
 104-byte `sun_path` limit and `bind()` returns
@@ -175,7 +166,7 @@ limit.
 
 There are three stubs of `api.Frontend` in the suite:
 
-- `mekami-core/ingest_test/stub_frontend_test.go` — full
+- `mekami-cli/internal/core/ingest_test/stub_frontend_test.go` — full
   `go/parser`-backed stub that returns package name and
   top-level declarations only (no imports, refs, or calls).
   Registered automatically in `TestMain` under the

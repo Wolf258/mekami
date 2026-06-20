@@ -18,12 +18,12 @@ import (
 	"strings"
 
 	"github.com/Wolf258/mekami-cli/internal/format"
-	"github.com/Wolf258/mekami-core/diff"
-	"github.com/Wolf258/mekami-core/grep"
-	"github.com/Wolf258/mekami-core/model"
-	"github.com/Wolf258/mekami-core/path"
-	"github.com/Wolf258/mekami-core/queries"
-	"github.com/Wolf258/mekami-core/store"
+	"github.com/Wolf258/mekami-cli/internal/core/diff"
+	"github.com/Wolf258/mekami-cli/internal/core/grep"
+	"github.com/Wolf258/mekami-cli/internal/core/model"
+	"github.com/Wolf258/mekami-cli/internal/core/path"
+	"github.com/Wolf258/mekami-cli/internal/core/queries"
+	"github.com/Wolf258/mekami-cli/internal/core/store"
 	"github.com/Wolf258/mekami-cli/internal/naming"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

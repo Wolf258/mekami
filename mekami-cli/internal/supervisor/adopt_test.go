@@ -46,7 +46,7 @@ func startFakeDaemon(t *testing.T, root string) (*fakeDaemon, func()) {
 	// Stale PID file from a previous run: remove.
 	_ = os.Remove(pidPath)
 	_ = os.Remove(sockPath)
-	ln, err := net.Listen("unix", sockPath)
+	ln, err := listenIPCLocal(sockPath)
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
@@ -117,6 +117,7 @@ func (d *fakeDaemon) stop() {
 // return AdoptResult{PID, Root, StateRunning} with no
 // error.
 func TestAdoptDaemon_LiveOrphan(t *testing.T) {
+	requireIPC(t)
 	root := shortSockDir(t)
 	d, cleanup := startFakeDaemon(t, root)
 	defer cleanup()
@@ -255,6 +256,7 @@ func TestCleanStaleDaemonState_RemovesStaleFiles(t *testing.T) {
 // happened). cleanStaleDaemonState must NOT remove the
 // live process's files.
 func TestCleanStaleDaemonState_LeavesLiveProcessAlone(t *testing.T) {
+	requireIPC(t)
 	root := shortSockDir(t)
 	d, cleanup := startFakeDaemon(t, root)
 	defer cleanup()
@@ -280,6 +282,7 @@ func TestCleanStaleDaemonState_LeavesLiveProcessAlone(t *testing.T) {
 // The new supervisor must register the orphan's PID
 // without spawning a new process.
 func TestLoadFromRegistry_AdoptsOrphan(t *testing.T) {
+	requireIPC(t)
 	stateDir := t.TempDir()
 	root := shortSockDir(t)
 	// Fake daemon: the supervisor is told (via

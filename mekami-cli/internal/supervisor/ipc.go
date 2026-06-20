@@ -209,25 +209,26 @@ func (s *ipcServer) handle(conn net.Conn) {
 			s.writeResp(conn, Response{Ok: false, Error: err.Error()})
 			continue
 		}
+
+		// For quit / quit-all we close the listener BEFORE
+		// dispatching the request. This makes the response
+		// write and the listener teardown effectively
+		// atomic from a follow-up client's perspective: by
+		// the time the Ok response reaches the original
+		// client, the socket file is gone and any new
+		// dial or stat will fail with ECONNREFUSED or
+		// ENOENT. This eliminates the race where a Ping
+		// issued immediately after QuitAll could race
+		// against the goroutine-launched Shutdown().
+		if req.Cmd == CmdQuit || req.Cmd == CmdQuitAll {
+			_ = s.Shutdown()
+			resp := s.dispatch(conn, req)
+			s.writeResp(conn, resp)
+			return
+		}
+
 		resp := s.dispatch(conn, req)
 		s.writeResp(conn, resp)
-
-		if req.Cmd == CmdQuit {
-			// Server-side shutdown. The accept loop
-			// returns on the next Accept; the caller
-			// is expected to also call Shutdown.
-			go func() { _ = s.Shutdown() }()
-			return
-		}
-		if req.Cmd == CmdQuitAll {
-			// Same as CmdQuit, but the handler
-			// is expected to also stop every
-			// daemon and write the stop sentinel
-			// before returning. The IPC server
-			// closes the same way.
-			go func() { _ = s.Shutdown() }()
-			return
-		}
 	}
 }
 

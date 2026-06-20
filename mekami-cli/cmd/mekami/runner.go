@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/Wolf258/mekami-core/store"
+	"github.com/Wolf258/mekami-cli/internal/core/store"
 	"github.com/Wolf258/mekami-cli/internal/handlers"
 	"github.com/Wolf258/mekami-cli/internal/naming"
 	"github.com/spf13/cobra"

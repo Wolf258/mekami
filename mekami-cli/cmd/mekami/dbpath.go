@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Wolf258/mekami-core/store"
+	"github.com/Wolf258/mekami-cli/internal/core/store"
 )
 
 // DefaultDBPath is the relative path used when the --db flag is not

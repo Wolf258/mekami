@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Wolf258/mekami-cli/internal/config"
+	"github.com/Wolf258/mekami-cli/internal/testutil"
 )
 
 func TestPIDFile_RoundTrip(t *testing.T) {
@@ -86,17 +87,12 @@ func TestEnsureStateDir_CreatesWith700(t *testing.T) {
 	if err := EnsureStateDir(dir); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(StatePath(dir))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o700 {
-		t.Errorf("state dir perms = %o, want 0700", info.Mode().Perm())
-	}
+	testutil.AssertSecureDirPerms(t, StatePath(dir))
 }
 
 func TestIPC_ClientServerPing(t *testing.T) {
-	dir := t.TempDir()
+	requireIPC(t)
+	dir := shortSockDir(t)
 	if err := EnsureStateDir(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +116,8 @@ func TestIPC_ClientServerPing(t *testing.T) {
 }
 
 func TestIPC_StatusReturnsCounters(t *testing.T) {
-	dir := t.TempDir()
+	requireIPC(t)
+	dir := shortSockDir(t)
 	if err := EnsureStateDir(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +150,8 @@ func TestIPC_StatusReturnsCounters(t *testing.T) {
 }
 
 func TestIPC_StopTriggersCallback(t *testing.T) {
-	dir := t.TempDir()
+	requireIPC(t)
+	dir := shortSockDir(t)
 	if err := EnsureStateDir(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +177,8 @@ func TestIPC_StopTriggersCallback(t *testing.T) {
 }
 
 func TestIPC_UnknownCommand(t *testing.T) {
-	dir := t.TempDir()
+	requireIPC(t)
+	dir := shortSockDir(t)
 	if err := EnsureStateDir(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +203,8 @@ func TestIPC_UnknownCommand(t *testing.T) {
 }
 
 func TestIPC_ReloadMetrics(t *testing.T) {
-	dir := t.TempDir()
+	requireIPC(t)
+	dir := shortSockDir(t)
 	if err := EnsureStateDir(dir); err != nil {
 		t.Fatal(err)
 	}
