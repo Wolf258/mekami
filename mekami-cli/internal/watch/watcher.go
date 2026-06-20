@@ -24,9 +24,9 @@ import (
 	"time"
 
 	"github.com/Wolf258/mekami-cli/internal/config"
-	"github.com/Wolf258/mekami-core/ingest"
+	"github.com/Wolf258/mekami-cli/internal/core/ingest"
 	"github.com/Wolf258/mekami-api/api/v1"
-	_ "github.com/Wolf258/mekami-core/frontend/all_gen"
+	_ "github.com/Wolf258/mekami-cli/internal/core/frontend/all_gen"
 )
 
 // Logger is the minimum sink the watcher needs. The CLI supplies a

@@ -1,9 +1,0 @@
-// Package doc: see go.work.e2e.README.md for usage notes.
-go 1.26.3
-
-use (
-	./mekami-cli
-	./mekami-core
-	../mekami-api
-	../mekami-core-go
-)

@@ -13,7 +13,7 @@ import (
 
 	"github.com/Wolf258/mekami-cli/internal/config"
 	"github.com/Wolf258/mekami-cli/internal/format"
-	"github.com/Wolf258/mekami-core/store"
+	"github.com/Wolf258/mekami-cli/internal/core/store"
 	"github.com/Wolf258/mekami-cli/internal/naming"
 	"github.com/Wolf258/mekami-cli/internal/supervisor"
 )

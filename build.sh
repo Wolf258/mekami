@@ -15,12 +15,13 @@
 # install.version variable path.
 #
 # Dev-only behavior: this script regenerates
-# mekami-core/frontend/all_gen/all_gen.go with the dev builtin set
-# (today: mekami-core-go) before compiling, so the resulting binary
-# can index a Go project without `mekami core install go` first.
-# The original all_gen.go is restored on exit (success or failure)
-# via an EXIT trap, so the working tree stays clean. If you are
-# editing all_gen.go by hand, do not run this script in parallel.
+# mekami-cli/internal/core/frontend/all_gen/all_gen.go with the
+# dev builtin set (today: mekami-core-go) before compiling, so
+# the resulting binary can index a Go project without
+# `mekami core install go` first. The original all_gen.go is
+# restored on exit (success or failure) via an EXIT trap, so the
+# working tree stays clean. If you are editing all_gen.go by
+# hand, do not run this script in parallel.
 
 set -euo pipefail
 
@@ -50,12 +51,12 @@ fi
 # file is backed up in a mktemp directory and restored by the
 # EXIT trap below, so the working tree is left untouched whether
 # the build succeeds or fails.
-all_gen="mekami-core/frontend/all_gen/all_gen.go"
+all_gen="mekami-cli/internal/core/frontend/all_gen/all_gen.go"
 backup_dir=$(mktemp -d)
 cp "$all_gen" "$backup_dir/orig"
 trap 'cp "$backup_dir/orig" "$all_gen"; rm -rf "$backup_dir"' EXIT
 
-go run ./mekami-core/scripts/dev-allgen "$all_gen"
+go run ./mekami-cli/internal/core/scripts/dev-allgen "$all_gen"
 
 version="${1:-dev}"
 

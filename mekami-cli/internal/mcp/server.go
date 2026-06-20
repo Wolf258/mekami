@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Wolf258/mekami-core/store"
+	"github.com/Wolf258/mekami-cli/internal/core/store"
 	"github.com/Wolf258/mekami-cli/internal/handlers"
 	"github.com/Wolf258/mekami-cli/internal/naming"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

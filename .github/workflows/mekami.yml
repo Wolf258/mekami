@@ -24,16 +24,13 @@ jobs:
             mekami-cli/go.sum
             mekami-core/go.sum
       # Run from the repo root so the committed go.work is in
-      # scope; that keeps the require for mekami-core
-      # resolvable as a local module without hitting the
-      # module proxy. `./...` from the repo root is rejected
-      # by Go because the root is not itself a module, so
-      # we expand the patterns explicitly to the modules
-      # listed in go.work.
+      # scope. The whole codebase now lives in a single module
+      # (mekami-cli), with mekami-core fused in as internal/core
+      # so we no longer need to expand per-module patterns.
       - name: Test workspace
         run: |
           go env GOWORK
-          go test -short ./mekami-cli/... ./mekami-core/...
+          go test -short ./mekami-cli/...
 
   build:
     name: build-${{ matrix.os }}
