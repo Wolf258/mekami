@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -66,6 +68,12 @@ type BuildStats struct {
 	// the FK and the caller can derive them from Stats if needed.
 	// Nil when no cleanup ran.
 	RemovedLangs map[string]int64
+	// SkippedByReason groups FilesSkipped by error reason. The
+	// ingest loop accumulates one entry per distinct reason
+	// string and the caller renders the top entries as a
+	// summary instead of N per-file log lines. Nil when no
+	// files were skipped.
+	SkippedByReason map[string]int64
 }
 
 // Build walks the source tree under opts.Root, parses every file via
@@ -83,6 +91,11 @@ func Build(ctx context.Context, opts BuildOptions) (BuildStats, error) {
 
 	if opts.Lang == "" {
 		opts.Lang = "go"
+	}
+	if abs, err := filepath.Abs(opts.Root); err == nil {
+		opts.Root = abs
+	} else {
+		return stats, fmt.Errorf("abs root: %w", err)
 	}
 	fe, err := api.Get(opts.Lang)
 	if err != nil {
@@ -213,6 +226,10 @@ func Build(ctx context.Context, opts BuildOptions) (BuildStats, error) {
 	stats.SymbolsAdded = afterStats["symbols"] - beforeStats["symbols"]
 	stats.RefsAdded = afterStats["refs"] - beforeStats["refs"]
 	stats.Duration = time.Since(start)
+
+	if !opts.Quiet && stats.FilesSkipped > 0 {
+		PrintSkippedSummary(os.Stderr, stats, opts.Clean)
+	}
 
 	return stats, nil
 }
@@ -421,7 +438,11 @@ func ingestFilesParallel(
 			if errors.Is(p.err, context.Canceled) || errors.Is(p.err, context.DeadlineExceeded) {
 				return p.err
 			}
-			prog.Event("skip", fmt.Sprintf("%s: %v", rel, p.err))
+			reason := skipReason(p.err)
+			if stats.SkippedByReason == nil {
+				stats.SkippedByReason = map[string]int64{}
+			}
+			stats.SkippedByReason[reason]++
 			stats.FilesSkipped++
 			continue
 		}
@@ -435,4 +456,76 @@ func ingestFilesParallel(
 		stats.FilesIngested++
 	}
 	return nil
+}
+
+// skipReason normalises a per-file parse error into a short
+// string suitable for grouping in the SkippedByReason map. We
+// keep the type prefix so identical errors from different files
+// collapse, but drop the wrapping file path that Build inserts
+// (e.g. "api/client.go: Rel: ...") so the summary line stays
+// readable. The colon between the type and the message is what
+// the original "Rel: can't make X relative to Y" error naturally
+// produces, so the result reads as a single line.
+func skipReason(err error) string {
+	if err == nil {
+		return ""
+	}
+	s := err.Error()
+	// Trim any "<path>: " prefix the caller may have added; we
+	// only want the underlying reason in the summary bucket.
+	if i := strings.LastIndex(s, ": "); i > 0 {
+		// Heuristic: a path-like prefix has a slash or a dot
+		// before the colon. "Rel: ..." has neither. Accept
+		// the cut only when the left side looks like a path.
+		left := s[:i]
+		if strings.ContainsAny(left, "/\\.") {
+			s = s[i+2:]
+		}
+	}
+	return s
+}
+
+// PrintSkippedSummary writes a human-readable summary of the
+// files Build skipped during ingest, grouped by reason. The top
+// 5 reasons are listed in descending count; the rest are
+// aggregated under "...". When `clean` is true the headline
+// emphasises the data-loss risk so the operator notices. Output
+// goes to w; callers route it to stderr.
+func PrintSkippedSummary(w io.Writer, stats BuildStats, clean bool) {
+	if stats.FilesSkipped == 0 || len(stats.SkippedByReason) == 0 {
+		return
+	}
+	type kv struct {
+		reason string
+		count  int64
+	}
+	all := make([]kv, 0, len(stats.SkippedByReason))
+	for r, c := range stats.SkippedByReason {
+		all = append(all, kv{r, c})
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].count != all[j].count {
+			return all[i].count > all[j].count
+		}
+		return all[i].reason < all[j].reason
+	})
+	head := all
+	if len(head) > 5 {
+		head = head[:5]
+	}
+	if clean {
+		fmt.Fprintf(w, "build: --clean skipped %d files. Top reasons:\n", stats.FilesSkipped)
+	} else {
+		fmt.Fprintf(w, "build: skipped %d files. Top reasons:\n", stats.FilesSkipped)
+	}
+	for _, e := range head {
+		line := e.reason
+		if len(line) > 120 {
+			line = line[:117] + "..."
+		}
+		fmt.Fprintf(w, "  %4d  %s\n", e.count, line)
+	}
+	if len(all) > len(head) {
+		fmt.Fprintf(w, "  ...  %d more distinct reasons\n", len(all)-len(head))
+	}
 }
