@@ -10,6 +10,13 @@ import (
 	"github.com/Wolf258/mekami-cli/internal/core/model"
 )
 
+// maxChangesPathsPerBucket is the per-bucket path cap for
+// TextChanges when the diff is long. The CLI default (--head 30)
+// already constrains the union; this constant is the per-bucket
+// slice for the human-readable rendering.
+const maxChangesPathsPerBucket = 10
+
+
 // JSON encodes v as an indented JSON string. If v is already a string
 // (typical for human-readable formatters like format.Symbol), it is
 // returned verbatim. Any encoding error is returned as a string
@@ -547,5 +554,79 @@ func TextIndexStatus(st IndexSnapshot) string {
 			fmt.Fprintf(&b, "%s: %d\n", k, v)
 		}
 	}
+	return b.String()
+}
+
+// TextChanges: compact rendering of a FileDiff as four short
+// sections, one per bucket. Each section lists up to
+// maxChangesPathsPerBucket paths and reports the rest with
+// "and N more" so the LLM can decide whether to re-query with
+// --head. The MaybeHeader at the top carries the cap-truncation
+// copy and total count, identical to the other list formatters.
+//
+// When all four buckets are empty the function returns the
+// canonical "(no changes)" sentinel so the LLM can distinguish
+// "build is fresh" from "no data".
+func TextChanges(d model.FileDiff, cap Cap) string {
+	if len(d.Added)+len(d.Modified)+len(d.Removed)+len(d.Inaccessible) == 0 {
+		return "no changes since last build"
+	}
+	var b strings.Builder
+	b.WriteString(MaybeHeader(KindChanges, cap))
+	writeChangeBucket(&b, "+ added", d.Added)
+	writeChangeBucket(&b, "~ modified", d.Modified)
+	writeChangeBucket(&b, "- removed", d.Removed)
+	writeChangeBucket(&b, "! inaccessible", d.Inaccessible)
+	b.WriteString(MaybeFooter(cap))
+	return b.String()
+}
+
+// writeChangeBucket prints a single section header + paths or
+// "(none)" when empty. Paths are truncated to the first N
+// entries with a trailing "and M more" hint.
+func writeChangeBucket(b *strings.Builder, header string, paths []string) {
+	if len(paths) == 0 {
+		fmt.Fprintf(b, "%s  (none)\n", header)
+		return
+	}
+	fmt.Fprintf(b, "%s  (%d)\n", header, len(paths))
+	shown := paths
+	if len(shown) > maxChangesPathsPerBucket {
+		shown = shown[:maxChangesPathsPerBucket]
+	}
+	for _, p := range shown {
+		fmt.Fprintf(b, "    %s\n", p)
+	}
+	if rest := len(paths) - len(shown); rest > 0 {
+		fmt.Fprintf(b, "    ... and %d more\n", rest)
+	}
+}
+
+// TextTrace: compact rendering of a call-path between two
+// symbols. Each edge is a line "<from> → <to>  (via
+// <file>:<line>)" so the LLM can see the step-by-step chain
+// at a glance. The path's --head cap (when hit) prepends the
+// same MaybeHeader the other list formatters use, and the
+// footer hint suggests raising --max-depth.
+//
+// An empty edge list produces a canonical "no path" message
+// so the LLM can distinguish a real path from an empty result.
+func TextTrace(edges []model.RefSite, cap Cap) string {
+	if len(edges) == 0 {
+		return "no path"
+	}
+	items := edges
+	if cap.Truncated && cap.Shown < len(items) {
+		items = items[:cap.Shown]
+	}
+	var b strings.Builder
+	b.WriteString(MaybeHeader(KindSites, cap))
+	fmt.Fprintf(&b, "call path  (%d edges)\n", len(items))
+	for _, e := range items {
+		fmt.Fprintf(&b, "  %s → %s  (via %s:%d  [%s])\n",
+			e.FromSymbol.QualifiedName, e.ToQName,
+			e.FromSymbol.FilePath, e.Line, e.Kind)
+	}
+	b.WriteString(MaybeFooter(cap))
 	return b.String()
 }

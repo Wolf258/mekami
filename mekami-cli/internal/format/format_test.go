@@ -189,3 +189,84 @@ func TestModuleOverview_Empty(t *testing.T) {
 		t.Fatalf("expected (no modules), got %q", got)
 	}
 }
+
+func TestTextChanges_Empty(t *testing.T) {
+	got := TextChanges(model.FileDiff{}, Cap{Total: 0, Shown: 0})
+	if got != "no changes since last build" {
+		t.Fatalf("expected no-changes sentinel, got %q", got)
+	}
+}
+
+func TestTextChanges_AllBuckets(t *testing.T) {
+	d := model.FileDiff{
+		Added:        []string{"a.go", "b.go"},
+		Modified:     []string{"c.go"},
+		Removed:      nil,
+		Inaccessible: []string{"d.go", "e.go"},
+	}
+	got := TextChanges(d, Cap{Total: 5, Shown: 5})
+	must := []string{"+ added  (2)", "~ modified  (1)", "- removed  (none)", "! inaccessible  (2)", "a.go", "c.go", "d.go"}
+	for _, m := range must {
+		if !strings.Contains(got, m) {
+			t.Fatalf("expected %q in output, got:\n%s", m, got)
+		}
+	}
+}
+
+func TestTextChanges_TruncatesLongBuckets(t *testing.T) {
+	added := make([]string, 0, 25)
+	for i := 0; i < 25; i++ {
+		added = append(added, "f.go")
+	}
+	d := model.FileDiff{Added: added}
+	got := TextChanges(d, Cap{Total: 25, Shown: 25})
+	if !strings.Contains(got, "... and 15 more") {
+		t.Fatalf("expected ... and 15 more in output, got:\n%s", got)
+	}
+}
+
+func TestTextTrace_Empty(t *testing.T) {
+	got := TextTrace(nil, Cap{Total: 0, Shown: 0})
+	if got != "no path" {
+		t.Fatalf("expected no path sentinel, got %q", got)
+	}
+}
+
+func TestTextTrace_RendersEdges(t *testing.T) {
+	edges := []model.RefSite{
+		{
+			FromSymbol: model.SymbolWithFile{Symbol: model.Symbol{QualifiedName: "a.X"}, FilePath: "a.go"},
+			ToQName:    "b.Y",
+			Line:       10,
+			Kind:       "call",
+		},
+		{
+			FromSymbol: model.SymbolWithFile{Symbol: model.Symbol{QualifiedName: "b.Y"}, FilePath: "b.go"},
+			ToQName:    "c.Z",
+			Line:       20,
+			Kind:       "call",
+		},
+	}
+	got := TextTrace(edges, Cap{Total: 2, Shown: 2})
+	must := []string{"a.X → b.Y", "via a.go:10  [call]", "b.Y → c.Z", "via b.go:20  [call]", "call path  (2 edges)"}
+	for _, m := range must {
+		if !strings.Contains(got, m) {
+			t.Fatalf("expected %q in output, got:\n%s", m, got)
+		}
+	}
+}
+
+func TestTextTrace_Truncated(t *testing.T) {
+	edges := []model.RefSite{
+		{FromSymbol: model.SymbolWithFile{Symbol: model.Symbol{QualifiedName: "a.X"}, FilePath: "a.go"}, ToQName: "b.Y", Line: 1, Kind: "call"},
+		{FromSymbol: model.SymbolWithFile{Symbol: model.Symbol{QualifiedName: "b.Y"}, FilePath: "b.go"}, ToQName: "c.Z", Line: 2, Kind: "call"},
+		{FromSymbol: model.SymbolWithFile{Symbol: model.Symbol{QualifiedName: "c.Z"}, FilePath: "c.go"}, ToQName: "d.W", Line: 3, Kind: "call"},
+	}
+	got := TextTrace(edges, Cap{Total: 5, Shown: 2, Truncated: true, Hint: HintFor(KindSites)})
+	if !strings.HasPrefix(got, "5 sites found") {
+		t.Fatalf("expected header, got %q", got)
+	}
+	if strings.Contains(got, "d.W") {
+		t.Fatalf("expected third edge to be hidden by cap, got:\n%s", got)
+	}
+}

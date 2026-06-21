@@ -140,6 +140,13 @@ func mcpFlagSchema(f naming.Flag) map[string]any {
 // makeHandler returns the SDK-compatible handler for a given tool
 // name. The handler decodes the raw JSON arguments into an ArgMap
 // and dispatches to the matching function in internal/handlers.
+//
+// After the Result refactor (see internal/handlers/result.go) every
+// handler returns a Result{Text, Data}. The MCP wire default is
+// the same text view the CLI prints by default — keeping CLI and
+// MCP byte-for-byte equivalent. When the caller asked for JSON
+// (via the json arg the runner injects), the data side is
+// serialized instead.
 func (s *Server) makeHandler(name string) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		var args naming.ArgMap
@@ -163,7 +170,17 @@ func (s *Server) makeHandler(name string) mcp.ToolHandler {
 			}
 			return nil, err
 		}
-		return handlers.ToolResult(out), nil
+		// If the LLM asked for JSON explicitly, honor it. Otherwise
+		// prefer the text view so MCP and CLI default match.
+		if args.GetBool("json", false) {
+			return handlers.ToolResult(handlers.ExtractData(out)), nil
+		}
+		if text := handlers.TextView(out); text != "" {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: text}},
+			}, nil
+		}
+		return handlers.ToolResult(handlers.ExtractData(out)), nil
 	}
 }
 

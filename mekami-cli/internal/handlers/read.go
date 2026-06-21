@@ -122,10 +122,7 @@ func FindSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, e
 		return nil, err
 	}
 	cap := capFor(len(syms), args, format.KindSymbols)
-	if !cap.Truncated {
-		return format.SymbolList(syms, cap), nil
-	}
-	return payloadOrString(syms, cap), nil
+	return AsResult(format.SymbolList(syms, cap), payloadOrString(syms, cap)), nil
 }
 
 // GetSymbol returns a symbol's source. With body=false (the default)
@@ -141,13 +138,13 @@ func GetSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 		return nil, err
 	}
 	if len(syms) == 0 {
-		return fmt.Sprintf("no symbol found for %q", qn), nil
+		return AsResult(fmt.Sprintf("no symbol found for %q", qn), nil), nil
 	}
 	body := args.GetBool("body", false)
 	maxLines := args.GetInt("max_lines", 200)
 	if !body {
-		// Default and header-only path: the header block.
-		return format.Symbol(syms), nil
+		text := format.Symbol(syms)
+		return AsResult(text, syms), nil
 	}
 	// body=true: numbered body, with max_lines cap. Use the first
 	// matching symbol (qualified names are unique per definition).
@@ -156,7 +153,8 @@ func GetSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 	if err != nil {
 		return nil, err
 	}
-	return format.SymbolBody(sym, lines, maxLines), nil
+	text := format.SymbolBody(sym, lines, maxLines)
+	return AsResult(text, syms), nil
 }
 
 // ShowBody returns just the numbered body.
@@ -168,14 +166,15 @@ func ShowBody(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		return nil, err
 	}
 	if len(syms) == 0 {
-		return fmt.Sprintf("no symbol found for %q", qn), nil
+		return AsResult(fmt.Sprintf("no symbol found for %q", qn), nil), nil
 	}
 	sym := syms[0]
 	lines, err := queries.SourceSlice(ctx, s, sym.FilePath, sym.StartLine, sym.EndLine, maxLines)
 	if err != nil {
 		return nil, err
 	}
-	return format.SymbolBody(sym, lines, maxLines), nil
+	text := format.SymbolBody(sym, lines, maxLines)
+	return AsResult(text, syms), nil
 }
 
 // ShowLines returns a range of lines from a file.
@@ -185,23 +184,24 @@ func ShowLines(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 	endLine := args.GetInt("end_line", 0)
 	maxLines := args.GetInt("max_lines", 200)
 	if startLine < 1 {
-		return "start_line must be >= 1", nil
+		return AsResult("start_line must be >= 1", nil), nil
 	}
 	end := endLine
 	if end <= 0 {
 		end = startLine + 100
 	}
 	if end < startLine {
-		return "end_line must be >= start_line", nil
+		return AsResult("end_line must be >= start_line", nil), nil
 	}
 	lines, err := queries.SourceSlice(ctx, s, path, startLine, end, maxLines)
 	if err != nil {
 		return nil, err
 	}
 	if len(lines) == 0 {
-		return fmt.Sprintf("no content in %s:%d-%d (file may be shorter than the requested range)", path, startLine, end), nil
+		return AsResult(fmt.Sprintf("no content in %s:%d-%d (file may be shorter than the requested range)", path, startLine, end), nil), nil
 	}
-	return format.FileRange(path, startLine, end, lines, maxLines), nil
+	text := format.FileRange(path, startLine, end, lines, maxLines)
+	return AsResult(text, lines), nil
 }
 
 // WhoCalls returns incoming references to a symbol.
@@ -215,10 +215,7 @@ func WhoCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		return nil, err
 	}
 	cap := capFor(len(refs), args, format.KindRefs)
-	if !cap.Truncated {
-		return format.RefList(qn, refs, cap), nil
-	}
-	return payloadOrString(refs, cap), nil
+	return AsResult(format.RefList(qn, refs, cap), payloadOrString(refs, cap)), nil
 }
 
 // WhatCalls returns outgoing references from a symbol.
@@ -231,10 +228,7 @@ func WhatCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 		return nil, err
 	}
 	cap := capFor(len(refs), args, format.KindOutgoing)
-	if !cap.Truncated {
-		return format.OutgoingList(qn, refs, cap), nil
-	}
-	return payloadOrString(refs, cap), nil
+	return AsResult(format.OutgoingList(qn, refs, cap), payloadOrString(refs, cap)), nil
 }
 
 // ListFile returns the symbols in a file.
@@ -245,7 +239,7 @@ func ListFile(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		return nil, err
 	}
 	if count == 0 {
-		return fmt.Sprintf("no file found for %q (check path; use list_files to see indexed paths)", path), nil
+		return AsResult(fmt.Sprintf("no file found for %q (check path; use list_files to see indexed paths)", path), nil), nil
 	}
 	if count > 1 {
 		syms, err := queries.FileOutline(ctx, s, path)
@@ -259,20 +253,18 @@ func ListFile(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		cap := capFor(len(syms), args, format.KindSymbols)
 		hdr := fmt.Sprintf("note: %q is ambiguous; matched %d files. Showing %s. Other matches: %v\n\n",
 			path, count, syms[0].FilePath, other)
-		return hdr + format.FileOutline(syms, cap), nil
+		text := hdr + format.FileOutline(syms, cap)
+		return AsResult(text, syms), nil
 	}
 	syms, err := queries.FileOutline(ctx, s, path)
 	if err != nil {
 		return nil, err
 	}
 	if len(syms) == 0 {
-		return fmt.Sprintf("file %q has no indexed symbols (it may be empty or all in test files)", candidates[0]), nil
+		return AsResult(fmt.Sprintf("file %q has no indexed symbols (it may be empty or all in test files)", candidates[0]), nil), nil
 	}
 	cap := capFor(len(syms), args, format.KindSymbols)
-	if !cap.Truncated {
-		return format.FileOutline(syms, cap), nil
-	}
-	return payloadOrString(syms, cap), nil
+	return AsResult(format.FileOutline(syms, cap), payloadOrString(syms, cap)), nil
 }
 
 // TraceCalls returns the call-path edges between two symbols.
@@ -286,17 +278,18 @@ func TraceCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, e
 		if errors.As(werr, &pe) {
 			switch pe.Kind {
 			case path.PathSameSymbol:
-				return fmt.Sprintf("from and to are the same symbol: %q", from), nil
+				return AsResult(fmt.Sprintf("from and to are the same symbol: %q", from), nil), nil
 			case path.PathSymbolNotFound:
-				return pe.Error() + " — check the qualified name (use find to find it)", nil
+				return AsResult(pe.Error()+" — check the qualified name (use find to find it)", nil), nil
 			}
 		}
 		return nil, werr
 	}
 	if len(edges) == 0 {
-		return fmt.Sprintf("no path found from %q to %q within depth %d", from, to, maxDepth), nil
+		return AsResult(fmt.Sprintf("no path found from %q to %q within depth %d", from, to, maxDepth), nil), nil
 	}
-	return edges, nil
+	cap := capFor(len(edges), args, format.KindSites)
+	return AsResult(format.TextTrace(edges, cap), edges), nil
 }
 
 // ListFiles returns the project file tree. The --head cap is
@@ -316,15 +309,16 @@ func ListFiles(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 		return nil, err
 	}
 	if tree == nil {
-		return &model.FileNode{Name: ".", Path: ".", Type: "dir"}, nil
+		fallback := &model.FileNode{Name: ".", Path: ".", Type: "dir"}
+		return AsResult(format.FileTreeText(fallback), fallback), nil
 	}
 	leaves := countFileLeaves(tree)
 	cap := capFor(leaves, args, format.KindFiles)
-	if !cap.Truncated {
-		return format.FileTreeText(tree), nil
+	data := any(tree)
+	if cap.Truncated {
+		data = listPayload{Items: trimFileTree(tree, cap.Shown), Cap: cap}
 	}
-	trimmed := trimFileTree(tree, cap.Shown)
-	return listPayload{Items: trimmed, Cap: cap}, nil
+	return AsResult(format.FileTreeText(tree), data), nil
 }
 
 // countFileLeaves reports how many file nodes (Type=="file")
@@ -395,13 +389,10 @@ func ListPackage(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 		return nil, err
 	}
 	if len(syms) == 0 {
-		return fmt.Sprintf("no symbols for package %q (check package_id)", resolved), nil
+		return AsResult(fmt.Sprintf("no symbols for package %q (check package_id)", resolved), nil), nil
 	}
 	cap := capFor(len(syms), args, format.KindSymbols)
-	if !cap.Truncated {
-		return format.PackageOutline(resolved, syms, cap), nil
-	}
-	return payloadOrString(syms, cap), nil
+	return AsResult(format.PackageOutline(resolved, syms, cap), payloadOrString(syms, cap)), nil
 }
 
 // resolvePackageID normalizes the user-supplied package_id. It accepts
@@ -527,10 +518,7 @@ func ListImporters(ctx context.Context, s *store.Store, args naming.ArgMap) (any
 	// multi-language projects will look up each package's lang
 	// via its module and dispatch per-row; for now every package
 	// in a single project shares the same lang.
-	if !cap.Truncated {
-		return format.PackageList(pkgs, "", cap), nil
-	}
-	return payloadOrString(pkgs, cap), nil
+	return AsResult(format.PackageList(pkgs, "", cap), payloadOrString(pkgs, cap)), nil
 }
 
 // ListModules returns the indexed modules.
@@ -540,10 +528,7 @@ func ListModules(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 		return nil, err
 	}
 	cap := capFor(len(mods), args, format.KindModules)
-	if !cap.Truncated {
-		return format.ModuleList(mods, cap), nil
-	}
-	return payloadOrString(mods, cap), nil
+	return AsResult(format.ModuleList(mods, cap), payloadOrString(mods, cap)), nil
 }
 
 // ShowModules returns the per-module package summary. The
@@ -557,17 +542,14 @@ func ShowModules(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 		return nil, err
 	}
 	cap := capFor(len(mods), args, format.KindModules)
-	if !cap.Truncated {
-		// Compact text: collapse ModuleSummary → ModuleInfo by
-		// taking the Dir (the path is already a property of the
-		// module, not the per-package rollup).
-		infos := make([]model.ModuleInfo, len(mods))
-		for i, m := range mods {
-			infos[i] = model.ModuleInfo{Dir: m.Dir, Path: m.ModuleID}
-		}
-		return format.ModuleList(infos, cap), nil
+	// Compact text: collapse ModuleSummary → ModuleInfo by
+	// taking the Dir (the path is already a property of the
+	// module, not the per-package rollup).
+	infos := make([]model.ModuleInfo, len(mods))
+	for i, m := range mods {
+		infos[i] = model.ModuleInfo{Dir: m.Dir, Path: m.ModuleID}
 	}
-	return payloadOrString(mods, cap), nil
+	return AsResult(format.ModuleList(infos, cap), payloadOrString(mods, cap)), nil
 }
 
 // diffPayload wraps a diff.FileDiff with truncation metadata. The
@@ -587,7 +569,7 @@ type diffPayload struct {
 func ShowChanges(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
 	root, err := queries.LastRoot(ctx, s)
 	if err != nil {
-		return SourceError(err), nil
+		return AsResult(SourceError(err), nil), nil
 	}
 	d, err := diff.SinceLastBuild(ctx, s, root)
 	if err != nil {
@@ -595,25 +577,26 @@ func ShowChanges(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 	}
 	total := len(d.Added) + len(d.Modified) + len(d.Removed) + len(d.Inaccessible)
 	cap := capFor(total, args, format.KindChanges)
-	if !cap.Truncated {
-		return d, nil
+	data := any(d)
+	if cap.Truncated {
+		// Truncate per-list proportionally: each sub-list is
+		// clipped so the union never exceeds cap.Shown. The
+		// cap rounds in favor of the first lists (added,
+		// modified) which are the more actionable signals.
+		shown := cap.Shown
+		added := take(&shown, d.Added)
+		modified := take(&shown, d.Modified)
+		removed := take(&shown, d.Removed)
+		inacc := take(&shown, d.Inaccessible)
+		data = diffPayload{
+			Added:        added,
+			Modified:     modified,
+			Removed:      removed,
+			Inaccessible: inacc,
+			Cap:          cap,
+		}
 	}
-	// Truncate per-list proportionally: each sub-list is clipped
-	// so the union never exceeds cap.Shown. The cap rounds in
-	// favor of the first lists (added, modified) which are the
-	// more actionable signals for the LLM.
-	shown := cap.Shown
-	added := take(&shown, d.Added)
-	modified := take(&shown, d.Modified)
-	removed := take(&shown, d.Removed)
-	inacc := take(&shown, d.Inaccessible)
-	return diffPayload{
-		Added:        added,
-		Modified:     modified,
-		Removed:      removed,
-		Inaccessible: inacc,
-		Cap:          cap,
-	}, nil
+	return AsResult(format.TextChanges(d, cap), data), nil
 }
 
 // take removes up to *remaining items from s and returns the
@@ -655,7 +638,7 @@ func FindText(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		Context:    context,
 	})
 	if err != nil {
-		return "error: " + err.Error(), nil
+		return AsResult("error: "+err.Error(), nil), nil
 	}
 	// find_text already returns total/truncated. Apply the
 	// visible --head cap on top. The resulting Cap reports the
@@ -676,27 +659,27 @@ func FindText(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		matches = matches[:head]
 		cap = format.Cap{Total: total, Shown: head, Truncated: true, Hint: hint}
 	}
-	if !cap.Truncated {
-		return format.TextMatches(res.Pattern, matches, cap), nil
-	}
-	out := struct {
-		Pattern   string       `json:"pattern"`
-		Root      string       `json:"root"`
+	// The text view is always the rg-style compact list
+	// (TextMatches handles the empty case). The data view is
+	// the reduced envelope: total/truncated/shown + matches
+	// + hint. pattern/root are no longer echoed because the
+	// caller already knows them; the redundant cap block is
+	// gone because the four top-level fields carry the same
+	// information.
+	data := struct {
 		Total     int          `json:"total"`
 		Truncated bool         `json:"truncated"`
 		Shown     int          `json:"shown"`
-		Cap       format.Cap   `json:"cap"`
+		Hint      string       `json:"hint,omitempty"`
 		Matches   []grep.Match `json:"matches"`
 	}{
-		Pattern:   res.Pattern,
-		Root:      res.Root,
 		Total:     total,
 		Truncated: cap.Truncated,
 		Shown:     cap.Shown,
-		Cap:       cap,
+		Hint:      cap.Hint,
 		Matches:   matches,
 	}
-	return out, nil
+	return AsResult(format.TextMatches(res.Pattern, matches, cap), data), nil
 }
 
 // IndexStatus returns the high-level DB snapshot. Default text
@@ -705,13 +688,14 @@ func FindText(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 func IndexStatus(ctx context.Context, s *store.Store, _ naming.ArgMap) (any, error) {
 	st, err := queries.IndexStatus(ctx, s)
 	if err != nil {
-		return SourceError(err), nil
+		return AsResult(SourceError(err), nil), nil
 	}
-	return format.TextIndexStatus(format.IndexSnapshot{
+	snap := format.IndexSnapshot{
 		LastRoot:    st.LastRoot,
 		LastBuildAt: st.LastBuildAt,
 		IsWorkspace: st.IsWorkspace,
 		RootModule:  st.RootModule,
 		Counts:      st.Counts,
-	}), nil
+	}
+	return AsResult(format.TextIndexStatus(snap), st), nil
 }

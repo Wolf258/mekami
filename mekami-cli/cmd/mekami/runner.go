@@ -183,6 +183,13 @@ func flagVals(cmd *cobra.Command, spec *naming.Spec) naming.ArgMap {
 // prints the result. With --json, prints raw JSON; otherwise
 // formats as human-readable text (when the handler returned a
 // string) or pretty-prints JSON.
+//
+// After the Result refactor, every handler returns a Result
+// with a Text view (compact) and a Data view (structured). The
+// runner chooses which one to print: --json picks Data, the
+// default picks Text. The same shape feeds the MCP server
+// (see internal/mcp/server.go makeHandler) so CLI and MCP
+// share a single serialization path.
 func runGraphRead(ctx context.Context, cmd *cobra.Command, spec *naming.Spec, args []string) error {
 	// Decode positional args (with type validation) BEFORE opening
 	// the store so a bad integer or missing required arg fails fast
@@ -214,16 +221,20 @@ func runGraphRead(ctx context.Context, cmd *cobra.Command, spec *naming.Spec, ar
 
 	jsonMode, _ := cmd.Flags().GetBool("json")
 	if jsonMode {
-		return printJSON(out)
+		return printJSON(handlers.ExtractData(out))
 	}
-	if s, ok := out.(string); ok {
-		fmt.Fprint(os.Stdout, s)
-		if len(s) > 0 && s[len(s)-1] != '\n' {
-			fmt.Fprintln(os.Stdout)
-		}
-		return nil
+	text := handlers.TextView(out)
+	if text == "" {
+		// Fallback for handlers that haven't been migrated to
+		// Result yet (or returned nil). Serialize whatever we
+		// got so the caller still gets a parseable payload.
+		return printJSON(handlers.ExtractData(out))
 	}
-	return printJSON(out)
+	fmt.Fprint(os.Stdout, text)
+	if len(text) > 0 && text[len(text)-1] != '\n' {
+		fmt.Fprintln(os.Stdout)
+	}
+	return nil
 }
 
 // decodePositionalArgs walks spec.Args and assigns each non-MCPOnly

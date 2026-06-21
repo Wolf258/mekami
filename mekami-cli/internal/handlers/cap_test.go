@@ -185,9 +185,12 @@ func TestWhoCalls_Truncated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WhoCalls: %v", err)
 	}
-	lp, ok := out.(listPayload)
+	// After the Result refactor: extract the data side and
+	// check the listPayload shape that --json would emit.
+	data := ExtractData(out)
+	lp, ok := data.(listPayload)
 	if !ok {
-		t.Fatalf("expected listPayload, got %T", out)
+		t.Fatalf("expected listPayload data, got %T", data)
 	}
 	if !lp.Cap.Truncated {
 		t.Fatalf("expected truncated cap, got %+v", lp.Cap)
@@ -205,9 +208,10 @@ func TestWhoCalls_Truncated(t *testing.T) {
 	if len(items) != 5 {
 		t.Fatalf("expected 5 items, got %d", len(items))
 	}
-	// JSON shape sanity: encoding should not panic and should
-	// include the cap block.
-	enc, err := json.Marshal(out)
+	// JSON shape sanity: encoding the data should include the
+	// cap block. format.JSON knows about Result and unwraps
+	// it for serialization (via the helpers above).
+	enc, err := json.Marshal(data)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
@@ -226,18 +230,17 @@ func TestWhoCalls_NotTruncatedReturnsText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WhoCalls: %v", err)
 	}
-	if _, ok := out.(listPayload); ok {
-		t.Fatalf("expected text or slice when total<=head, got listPayload")
-	}
 	// When the result is not truncated, the handler returns the
-	// formatted text (refsTo formatter) so the LLM gets a
-	// per-line "caller  path:line  [kind]" listing instead of
-	// the full JSON envelope around each RefSite. The text must
-	// still mention the qualified name and at least one of the
-	// seeded caller names.
-	str, ok := out.(string)
-	if !ok {
-		t.Fatalf("expected string (text formatter), got %T", out)
+	// formatted text on the Text side; the Data side carries
+	// the slice for --json. The text must still mention the
+	// qualified name and at least one of the seeded caller
+	// names.
+	if _, ok := ExtractData(out).(listPayload); ok {
+		t.Fatalf("expected plain slice on data side when total<=head, got listPayload")
+	}
+	str := TextView(out)
+	if str == "" {
+		t.Fatalf("expected non-empty text view, got empty (out=%T)", out)
 	}
 	if !contains([]byte(str), qn) {
 		t.Fatalf("expected output to contain %q, got: %s", qn, str)
@@ -260,9 +263,9 @@ func TestFindSymbol_Truncated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindSymbol: %v", err)
 	}
-	lp, ok := out.(listPayload)
+	lp, ok := ExtractData(out).(listPayload)
 	if !ok {
-		t.Fatalf("expected listPayload, got %T", out)
+		t.Fatalf("expected listPayload data, got %T", ExtractData(out))
 	}
 	if !lp.Cap.Truncated || lp.Cap.Shown != 7 {
 		t.Fatalf("cap wrong: %+v", lp.Cap)
@@ -279,9 +282,9 @@ func TestListPackage_Truncated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListPackage: %v", err)
 	}
-	lp, ok := out.(listPayload)
+	lp, ok := ExtractData(out).(listPayload)
 	if !ok {
-		t.Fatalf("expected listPayload, got %T", out)
+		t.Fatalf("expected listPayload data, got %T", ExtractData(out))
 	}
 	// 50 callers + 1 target = 51 symbols, head=4 → truncated.
 	if !lp.Cap.Truncated || lp.Cap.Shown != 4 {
@@ -299,7 +302,7 @@ func TestListPackage_NotTruncated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListPackage: %v", err)
 	}
-	if _, ok := out.(listPayload); ok {
+	if _, ok := ExtractData(out).(listPayload); ok {
 		t.Fatalf("expected plain slice when total<=head")
 	}
 }
