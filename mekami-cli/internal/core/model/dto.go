@@ -3,9 +3,16 @@ package model
 // SymbolWithFile is a Symbol joined with the file path it lives in.
 // It is the canonical "this is a definition" row returned by the
 // read-side queries.
+//
+// Lang is filled in by the queries from the joined files row and
+// is consumed by the per-language formatter (see
+// format.LangFormatter). It is also exposed in JSON so consumers
+// (MCP/LLM clients) can disambiguate symbols across languages
+// without having to inspect the qualified name.
 type SymbolWithFile struct {
 	Symbol
-	FilePath string
+	FilePath string `json:"file_path"`
+	Lang     string `json:"lang"`
 }
 
 // RefSite is a Ref enriched with the source symbol's metadata and

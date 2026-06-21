@@ -180,7 +180,7 @@ func discoverFilePath(ctx context.Context, session *mcp.ClientSession, qn string
 			continue
 		}
 		var hits []struct {
-			FilePath string `json:"FilePath"`
+			FilePath string `json:"file_path"`
 		}
 		if err := json.Unmarshal([]byte(tc.Text), &hits); err != nil {
 			continue

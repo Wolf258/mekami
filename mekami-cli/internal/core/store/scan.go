@@ -14,7 +14,7 @@ import (
 // Exported so sibling packages (queries, path) can issue the
 // same SELECT shape.
 const SymbolWithFileSelect = `s.id,s.file_id,s.package_id,s.kind,s.name,s.qualified_name,
-		       s.start_line,s.end_line,s.exported,COALESCE(s.signature,''),s.parent_symbol,f.path`
+		       s.start_line,s.end_line,s.exported,COALESCE(s.signature,''),s.parent_symbol,f.path,f.lang`
 
 // ScanSymbolWithFile decodes a row produced by SymbolWithFileSelect.
 // It handles the exported-int-to-bool and the nullable parent_symbol
@@ -23,13 +23,14 @@ func ScanSymbolWithFile(rows *sql.Rows) (model.SymbolWithFile, error) {
 	var swf model.SymbolWithFile
 	var exported int
 	var parent sql.NullInt64
-	var fpath string
+	var fpath, flang string
 	if err := rows.Scan(&swf.ID, &swf.FileID, &swf.PackageID, &swf.Kind, &swf.Name, &swf.QualifiedName,
-		&swf.StartLine, &swf.EndLine, &exported, &swf.Signature, &parent, &fpath); err != nil {
+		&swf.StartLine, &swf.EndLine, &exported, &swf.Signature, &parent, &fpath, &flang); err != nil {
 		return model.SymbolWithFile{}, err
 	}
 	swf.Exported = exported != 0
 	swf.FilePath = fpath
+	swf.Lang = flang
 	if parent.Valid {
 		v := parent.Int64
 		swf.ParentSymbol = &v
@@ -45,14 +46,16 @@ func ScanRefSite(rows *sql.Rows) (model.RefSite, error) {
 	var rs model.RefSite
 	var exported int
 	var parent sql.NullInt64
+	var flang string
 	if err := rows.Scan(&rs.FromSymbol.ID, &rs.FromSymbol.FileID, &rs.FromSymbol.PackageID,
 		&rs.FromSymbol.Kind, &rs.FromSymbol.Name, &rs.FromSymbol.QualifiedName,
 		&rs.FromSymbol.StartLine, &rs.FromSymbol.EndLine, &exported,
-		&rs.FromSymbol.Signature, &parent, &rs.FromSymbol.FilePath,
+		&rs.FromSymbol.Signature, &parent, &rs.FromSymbol.FilePath, &flang,
 		&rs.Line, &rs.Kind); err != nil {
 		return model.RefSite{}, err
 	}
 	rs.FromSymbol.Exported = exported != 0
+	rs.FromSymbol.Lang = flang
 	if parent.Valid {
 		v := parent.Int64
 		rs.FromSymbol.ParentSymbol = &v
@@ -70,14 +73,16 @@ func ScanRefFromSymbolAt(rows *sql.Rows, tqn *string, line *int, kind *string) (
 	var swf model.SymbolWithFile
 	var exported int
 	var parent sql.NullInt64
+	var flang string
 	if err := rows.Scan(tqn, line, kind,
 		&swf.ID, &swf.FileID, &swf.PackageID,
 		&swf.Kind, &swf.Name, &swf.QualifiedName,
 		&swf.StartLine, &swf.EndLine, &exported,
-		&swf.Signature, &parent, &swf.FilePath); err != nil {
+		&swf.Signature, &parent, &swf.FilePath, &flang); err != nil {
 		return model.SymbolWithFile{}, err
 	}
 	swf.Exported = exported != 0
+	swf.Lang = flang
 	if parent.Valid {
 		v := parent.Int64
 		swf.ParentSymbol = &v

@@ -11,6 +11,10 @@ require (
 	golang.org/x/sys v0.42.0
 )
 
+replace github.com/Wolf258/mekami-api => ../mekami-api
+
+replace github.com/Wolf258/mekami-core-go => ../mekami-core-go
+
 require (
 	github.com/mattn/go-isatty v0.0.22
 	modernc.org/sqlite v1.52.0

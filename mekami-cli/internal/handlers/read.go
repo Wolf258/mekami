@@ -122,6 +122,9 @@ func FindSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, e
 		return nil, err
 	}
 	cap := capFor(len(syms), args, format.KindSymbols)
+	if !cap.Truncated {
+		return format.SymbolList(syms, cap), nil
+	}
 	return payloadOrString(syms, cap), nil
 }
 
@@ -213,7 +216,7 @@ func WhoCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 	}
 	cap := capFor(len(refs), args, format.KindRefs)
 	if !cap.Truncated {
-		return format.RefsTo(qn, refs, cap), nil
+		return format.RefList(qn, refs, cap), nil
 	}
 	return payloadOrString(refs, cap), nil
 }
@@ -229,7 +232,7 @@ func WhatCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 	}
 	cap := capFor(len(refs), args, format.KindOutgoing)
 	if !cap.Truncated {
-		return format.RefsFrom(qn, refs, cap), nil
+		return format.OutgoingList(qn, refs, cap), nil
 	}
 	return payloadOrString(refs, cap), nil
 }
@@ -318,7 +321,7 @@ func ListFiles(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 	leaves := countFileLeaves(tree)
 	cap := capFor(leaves, args, format.KindFiles)
 	if !cap.Truncated {
-		return tree, nil
+		return format.FileTreeText(tree), nil
 	}
 	trimmed := trimFileTree(tree, cap.Shown)
 	return listPayload{Items: trimmed, Cap: cap}, nil
@@ -520,6 +523,13 @@ func ListImporters(ctx context.Context, s *store.Store, args naming.ArgMap) (any
 		return nil, err
 	}
 	cap := capFor(len(pkgs), args, format.KindImporters)
+	// The lang argument is "" (default → Go formatter). Future
+	// multi-language projects will look up each package's lang
+	// via its module and dispatch per-row; for now every package
+	// in a single project shares the same lang.
+	if !cap.Truncated {
+		return format.PackageList(pkgs, "", cap), nil
+	}
 	return payloadOrString(pkgs, cap), nil
 }
 
@@ -530,10 +540,17 @@ func ListModules(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 		return nil, err
 	}
 	cap := capFor(len(mods), args, format.KindModules)
+	if !cap.Truncated {
+		return format.ModuleList(mods, cap), nil
+	}
 	return payloadOrString(mods, cap), nil
 }
 
-// ShowModules returns the per-module package summary.
+// ShowModules returns the per-module package summary. The
+// default text output lists the module dir paths (matching the
+// `find -name go.mod` shell equivalent at 1/50th the bytes).
+// Use --json to get the per-package statistics; the structured
+// payload stays the same.
 func ShowModules(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
 	mods, err := queries.ModuleOverview(ctx, s)
 	if err != nil {
@@ -541,7 +558,14 @@ func ShowModules(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 	}
 	cap := capFor(len(mods), args, format.KindModules)
 	if !cap.Truncated {
-		return format.ModuleOverview(mods, cap), nil
+		// Compact text: collapse ModuleSummary → ModuleInfo by
+		// taking the Dir (the path is already a property of the
+		// module, not the per-package rollup).
+		infos := make([]model.ModuleInfo, len(mods))
+		for i, m := range mods {
+			infos[i] = model.ModuleInfo{Dir: m.Dir, Path: m.ModuleID}
+		}
+		return format.ModuleList(infos, cap), nil
 	}
 	return payloadOrString(mods, cap), nil
 }
@@ -607,7 +631,11 @@ func take(remaining *int, s []string) []string {
 	return out
 }
 
-// FindText runs a server-side regex search.
+// FindText runs a server-side regex search. The default text
+// output is "path:line:content" per match (rg-style); use
+// --json for the structured envelope with total/truncated/pattern.
+// The head cap, when hit, always forces the JSON envelope so the
+// caller can see the total count.
 func FindText(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
 	root, err := queries.LastRoot(ctx, s)
 	if err != nil {
@@ -648,6 +676,9 @@ func FindText(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		matches = matches[:head]
 		cap = format.Cap{Total: total, Shown: head, Truncated: true, Hint: hint}
 	}
+	if !cap.Truncated {
+		return format.TextMatches(res.Pattern, matches, cap), nil
+	}
 	out := struct {
 		Pattern   string       `json:"pattern"`
 		Root      string       `json:"root"`
@@ -668,11 +699,19 @@ func FindText(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 	return out, nil
 }
 
-// IndexStatus returns the high-level DB snapshot.
+// IndexStatus returns the high-level DB snapshot. Default text
+// output is a key:value per line; --json keeps the structured
+// shape with Watcher status and Counts map.
 func IndexStatus(ctx context.Context, s *store.Store, _ naming.ArgMap) (any, error) {
 	st, err := queries.IndexStatus(ctx, s)
 	if err != nil {
 		return SourceError(err), nil
 	}
-	return st, nil
+	return format.TextIndexStatus(format.IndexSnapshot{
+		LastRoot:    st.LastRoot,
+		LastBuildAt: st.LastBuildAt,
+		IsWorkspace: st.IsWorkspace,
+		RootModule:  st.RootModule,
+		Counts:      st.Counts,
+	}), nil
 }

@@ -27,7 +27,7 @@ func WriteParseResult(tx *store.Tx, r api.ParseResult) error {
 	pkgID, err := tx.UpsertPackage(model.Package{
 		ModuleID:  r.ModuleID,
 		PackageID: r.PackageID,
-		Name:      packageNameFromPath(r.RelPath),
+		Name:      coalescePkgName(r.PackageName, r.RelPath),
 		Dir:       r.DirRel,
 	})
 	if err != nil {
@@ -54,9 +54,28 @@ func WriteParseResult(tx *store.Tx, r api.ParseResult) error {
 	}
 
 	symIDs := make([]int64, len(r.Symbols))
+	// pendingParents records, for every emitted method whose
+	// parent type is declared in the same file, the mapping from
+	// "real id of the method row" to "real id of the parent row".
+	// We resolve these after the first insert pass so the
+	// parent_symbol FK can point at a row that already exists.
+	type parentLink struct {
+		childID int64
+		parentID int64
+	}
+	var pendingParents []parentLink
 	for i, s := range r.Symbols {
 		s.FileID = fileID
 		s.PackageID = pkgID
+		// Defer the parent FK: the row the parent points at may
+		// not be inserted yet (Go allows forward references to
+		// types within a file when the collector encounters the
+		// method before the type).
+		var parentIdx *int64
+		if s.ParentSymbol != nil {
+			p := *s.ParentSymbol
+			parentIdx = &p
+		}
 		id, err := tx.InsertSymbol(model.Symbol{
 			Kind:          string(s.Kind),
 			Name:          s.Name,
@@ -65,7 +84,6 @@ func WriteParseResult(tx *store.Tx, r api.ParseResult) error {
 			EndLine:       s.EndLine,
 			Exported:      s.Exported,
 			Signature:     s.Signature,
-			ParentSymbol:  s.ParentSymbol,
 			FileID:        s.FileID,
 			PackageID:     s.PackageID,
 		})
@@ -73,6 +91,17 @@ func WriteParseResult(tx *store.Tx, r api.ParseResult) error {
 			return fmt.Errorf("insert symbol %q: %w", s.QualifiedName, err)
 		}
 		symIDs[i] = id
+		if parentIdx != nil {
+			pendingParents = append(pendingParents, parentLink{
+				childID:  id,
+				parentID: symIDs[*parentIdx],
+			})
+		}
+	}
+	for _, p := range pendingParents {
+		if err := tx.SetSymbolParent(p.childID, p.parentID); err != nil {
+			return fmt.Errorf("link parent %d -> child %d: %w", p.parentID, p.childID, err)
+		}
 	}
 
 	// Refs come out of the frontend with FromSymbol set to the 0-based
@@ -106,11 +135,29 @@ func WriteParseResult(tx *store.Tx, r api.ParseResult) error {
 	return nil
 }
 
+// coalescePkgName returns the package name to stamp into the
+// packages.name column. Frontends that resolve the declared
+// package name from the source (Go: `package foo`) provide it
+// in api.ParseResult.PackageName; this is the value of record
+// because it reflects what the source actually says, which can
+// differ from the directory basename (e.g. `package main` in
+// `cmd/mekami/...`). When the frontend does not resolve it,
+// the function falls back to the directory basename so the
+// packages table stays populated for languages that do not
+// surface a name through the contract.
+func coalescePkgName(declared, relPath string) string {
+	if declared != "" {
+		return declared
+	}
+	return packageNameFromPath(relPath)
+}
+
 // packageNameFromPath returns a sensible default `name` column value
-// for the packages table. The historical Go pipeline used the file's
-// `package <name>` declaration; for non-Go frontends we fall back to
-// the directory basename (which is what tools like ruff / cargo also
-// use to identify a package).
+// for the packages table. It is the cross-language fallback used
+// when a frontend does not provide a declared package name through
+// api.ParseResult.PackageName (Go: `package foo`; Python: __init__
+// package; Rust: crate name; etc. all surface it through the same
+// field).
 func packageNameFromPath(relPath string) string {
 	if relPath == "" {
 		return ""

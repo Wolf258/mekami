@@ -318,3 +318,12 @@ func (t *Tx) InsertRef(r model.Ref) error {
 		r.FromSymbol, r.ToQualified, r.Kind, r.Line)
 	return err
 }
+
+// SetSymbolParent stamps parentID into the parent_symbol column
+// of the child row. Used by the ingest writer to link a method
+// to its receiver type once both rows exist; the column is a FK
+// to symbols.id so the parent must be inserted first.
+func (t *Tx) SetSymbolParent(childID, parentID int64) error {
+	_, err := t.tx.Exec(`UPDATE symbols SET parent_symbol = ? WHERE id = ?`, parentID, childID)
+	return err
+}
