@@ -216,7 +216,7 @@ func TestWhoCalls_Truncated(t *testing.T) {
 	}
 }
 
-func TestWhoCalls_NotTruncatedReturnsSlice(t *testing.T) {
+func TestWhoCalls_NotTruncatedReturnsText(t *testing.T) {
 	s := newCapStore(t)
 	_, qn := seedSymbolsAndRefs(t, s.Store, 3, 1)
 	out, err := WhoCalls(context.Background(), s.Store, naming.ArgMap{
@@ -227,10 +227,23 @@ func TestWhoCalls_NotTruncatedReturnsSlice(t *testing.T) {
 		t.Fatalf("WhoCalls: %v", err)
 	}
 	if _, ok := out.(listPayload); ok {
-		t.Fatalf("expected plain slice when total<=head, got listPayload")
+		t.Fatalf("expected text or slice when total<=head, got listPayload")
 	}
-	if _, ok := out.([]model.RefSite); !ok {
-		t.Fatalf("expected []model.RefSite, got %T", out)
+	// When the result is not truncated, the handler returns the
+	// formatted text (refsTo formatter) so the LLM gets a
+	// per-line "caller  path:line  [kind]" listing instead of
+	// the full JSON envelope around each RefSite. The text must
+	// still mention the qualified name and at least one of the
+	// seeded caller names.
+	str, ok := out.(string)
+	if !ok {
+		t.Fatalf("expected string (text formatter), got %T", out)
+	}
+	if !contains([]byte(str), qn) {
+		t.Fatalf("expected output to contain %q, got: %s", qn, str)
+	}
+	if !contains([]byte(str), "Caller0") {
+		t.Fatalf("expected output to contain seeded caller name, got: %s", str)
 	}
 }
 

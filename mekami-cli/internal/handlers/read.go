@@ -212,6 +212,9 @@ func WhoCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		return nil, err
 	}
 	cap := capFor(len(refs), args, format.KindRefs)
+	if !cap.Truncated {
+		return format.RefsTo(qn, refs, cap), nil
+	}
 	return payloadOrString(refs, cap), nil
 }
 
@@ -225,6 +228,9 @@ func WhatCalls(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 		return nil, err
 	}
 	cap := capFor(len(refs), args, format.KindOutgoing)
+	if !cap.Truncated {
+		return format.RefsFrom(qn, refs, cap), nil
+	}
 	return payloadOrString(refs, cap), nil
 }
 
@@ -260,6 +266,9 @@ func ListFile(ctx context.Context, s *store.Store, args naming.ArgMap) (any, err
 		return fmt.Sprintf("file %q has no indexed symbols (it may be empty or all in test files)", candidates[0]), nil
 	}
 	cap := capFor(len(syms), args, format.KindSymbols)
+	if !cap.Truncated {
+		return format.FileOutline(syms, cap), nil
+	}
 	return payloadOrString(syms, cap), nil
 }
 
@@ -386,6 +395,9 @@ func ListPackage(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 		return fmt.Sprintf("no symbols for package %q (check package_id)", resolved), nil
 	}
 	cap := capFor(len(syms), args, format.KindSymbols)
+	if !cap.Truncated {
+		return format.PackageOutline(resolved, syms, cap), nil
+	}
 	return payloadOrString(syms, cap), nil
 }
 
@@ -528,6 +540,9 @@ func ShowModules(ctx context.Context, s *store.Store, args naming.ArgMap) (any, 
 		return nil, err
 	}
 	cap := capFor(len(mods), args, format.KindModules)
+	if !cap.Truncated {
+		return format.ModuleOverview(mods, cap), nil
+	}
 	return payloadOrString(mods, cap), nil
 }
 
