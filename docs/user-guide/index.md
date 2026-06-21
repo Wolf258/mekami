@@ -1,37 +1,43 @@
+---
+title: User guide
+sidebar_label: Overview
+---
+
 # User guide
 
 This section covers the user-facing surface of Mekami: the CLI, the MCP tools, configuration, the watch daemon, and the indexing pipeline.
 
-<div class="grid cards" markdown>
+import CardGrid, { Card } from '@site/src/components/CardGrid';
 
--   :material-console: **CLI reference**
-
-    Every command Mekami exposes.
-
-    [:octicons-arrow-right-24: CLI reference](cli.md)
-
--   :material-server: **MCP tools**
-
-    The 17 tools exposed over stdio.
-
-    [:octicons-arrow-right-24: MCP tools](mcp-tools.md)
-
--   :material-cog: **Configuration**
-
-    The `.mekami/config.json` schema.
-
-    [:octicons-arrow-right-24: Configuration](configuration.md)
-
--   :material-eye: **Watch mode**
-
-    Supervisor, watchdog, orphan adoption, inotify budget.
-
-    [:octicons-arrow-right-24: Watch mode](watch-mode.md)
-
--   :material-graph-outline: **How indexing works**
-
-    From source files to the SQLite graph.
-
-    [:octicons-arrow-right-24: How indexing works](how-it-works.md)
-
-</div>
+<CardGrid>
+  <Card
+    icon="🖥️"
+    title="CLI reference"
+    description="Every command Mekami exposes."
+    to="/user-guide/cli"
+  />
+  <Card
+    icon="🗄️"
+    title="MCP tools"
+    description="The 17 tools exposed over stdio."
+    to="/user-guide/mcp-tools"
+  />
+  <Card
+    icon="⚙️"
+    title="Configuration"
+    description="The `.mekami/config.json` schema."
+    to="/user-guide/configuration"
+  />
+  <Card
+    icon="👁️"
+    title="Watch mode"
+    description="Supervisor, watchdog, orphan adoption, inotify budget."
+    to="/user-guide/watch-mode"
+  />
+  <Card
+    icon="🕸️"
+    title="How indexing works"
+    description="From source files to the SQLite graph."
+    to="/user-guide/how-it-works"
+  />
+</CardGrid>

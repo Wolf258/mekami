@@ -1,19 +1,25 @@
+---
+title: Build & install
+sidebar_label: Overview
+---
+
 # Build & install
 
 This section is for users who want to build Mekami from source, package it, or troubleshoot the build pipeline.
 
-<div class="grid cards" markdown>
+import CardGrid, { Card } from '@site/src/components/CardGrid';
 
--   :material-package-variant: **From source**
-
-    `./build.sh` mechanics, the `all_gen` cycle, Go toolchain requirements.
-
-    [:octicons-arrow-right-24: From source](from-source.md)
-
--   :material-arch: **AUR packaging**
-
-    The two AUR packages, the bump procedure, local sanity checks.
-
-    [:octicons-arrow-right-24: AUR packaging](aur.md)
-
-</div>
+<CardGrid>
+  <Card
+    icon="📦"
+    title="From source"
+    description="`./build.sh` mechanics, the `all_gen` cycle, Go toolchain requirements."
+    to="/build/from-source"
+  />
+  <Card
+    icon="🏛️"
+    title="AUR packaging"
+    description="The two AUR packages, the bump procedure, local sanity checks."
+    to="/build/aur"
+  />
+</CardGrid>

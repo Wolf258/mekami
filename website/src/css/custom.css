@@ -1,0 +1,22 @@
+/**
+ * CSS variables and minor overrides for the Mekami docs site.
+ */
+
+:root {
+  --ifm-color-primary: #4f46e5;
+  --ifm-color-primary-dark: #4338ca;
+  --ifm-color-primary-darker: #3f37c1;
+  --ifm-color-primary-darkest: #342fa1;
+  --ifm-color-primary-light: #6255eb;
+  --ifm-color-primary-lighter: #6e62ed;
+  --ifm-color-primary-lightest: #8b81f1;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+article header h1 {
+  margin-bottom: 0.5rem;
+}

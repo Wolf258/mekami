@@ -175,4 +175,4 @@ func DefaultStructuralFiles() []string
 
 ## Source
 
-The package source lives in the `mekami-api` module: <https://github.com/Wolf258/mekami-api/blob/main/api/v1/api.go>.
+The package source lives in the `mekami-api` module: [`api.go`](https://github.com/Wolf258/mekami-api/blob/main/api/v1/api.go).

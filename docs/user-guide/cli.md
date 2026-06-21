@@ -2,8 +2,9 @@
 
 Every command is a top-level verb. There are no `query` / `watch` / `mcp` parent groups — discover the surface by reading `mekami --help` once.
 
-!!! tip "Unified vocabulary"
-    Every CLI command has a matching MCP tool. The CLI uses kebab-case (`who-calls`, `find-text`); MCP uses snake_case (`who_calls`, `find_text`). They are declared once in `internal/naming.Specs` and rendered into both surfaces automatically.
+:::tip[Unified vocabulary]
+Every CLI command has a matching MCP tool. The CLI uses kebab-case (`who-calls`, `find-text`); MCP uses snake_case (`who_calls`, `find_text`). They are declared once in `internal/naming.Specs` and rendered into both surfaces automatically.
+:::
 
 ## Global flags
 

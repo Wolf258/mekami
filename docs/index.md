@@ -1,8 +1,11 @@
 ---
-hide:
-  - navigation
-  - toc
+title: Mekami
+slug: /
+hide_title: false
+hide_table_of_contents: true
 ---
+
+import CardGrid, { Card } from '@site/src/components/CardGrid';
 
 # Mekami
 
@@ -24,38 +27,29 @@ Mekami is **not** a code search engine. It indexes symbol names and reference ed
 
 ## Where to go next
 
-<div class="grid cards" markdown>
-
--   :material-rocket-launch: **Getting started**
-
-    ---
-
-    Install Mekami from the AUR, wire it into your MCP client, and run your first query.
-
-    [:octicons-arrow-right-24: Install](getting-started/installation.md)
-
--   :material-console: **CLI reference**
-
-    ---
-
-    Every command Mekami exposes, grouped by purpose: lifecycle, graph reads, daemon controls, service manager, MCP, core management.
-
-    [:octicons-arrow-right-24: Browse the CLI](user-guide/cli.md)
-
--   :material-cog: **How indexing works**
-
-    ---
-
-    Walk the data flow from source files to the SQLite graph: fingerprint, AST collector, type resolver, writer.
-
-    [:octicons-arrow-right-24: Read the pipeline](user-guide/how-it-works.md)
-
--   :material-tools: **Extend Mekami**
-
-    ---
-
-    Add a new language frontend by implementing the `api.Frontend` interface. Full walkthrough using Rust as an example.
-
-    [:octicons-arrow-right-24: Write a frontend](extending/writing-a-frontend.md)
-
-</div>
+<CardGrid>
+  <Card
+    icon="🚀"
+    title="Getting started"
+    description="Install Mekami from the AUR, wire it into your MCP client, and run your first query."
+    to="/getting-started/installation"
+  />
+  <Card
+    icon="🖥️"
+    title="CLI reference"
+    description="Every command Mekami exposes, grouped by purpose: lifecycle, graph reads, daemon controls, service manager, MCP, core management."
+    to="/user-guide/cli"
+  />
+  <Card
+    icon="⚙️"
+    title="How indexing works"
+    description="Walk the data flow from source files to the SQLite graph: fingerprint, AST collector, type resolver, writer."
+    to="/user-guide/how-it-works"
+  />
+  <Card
+    icon="🛠️"
+    title="Extend Mekami"
+    description="Add a new language frontend by implementing the `api.Frontend` interface. Full walkthrough using Rust as an example."
+    to="/extending/writing-a-frontend"
+  />
+</CardGrid>

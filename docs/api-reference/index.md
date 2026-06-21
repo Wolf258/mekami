@@ -1,3 +1,8 @@
+---
+title: API reference
+sidebar_label: Overview
+---
+
 # API reference
 
 The public surface of Mekami is small. There are two halves:
@@ -7,12 +12,13 @@ The public surface of Mekami is small. There are two halves:
 
 The CLI is the user-facing surface; for the `api/v1` contract, see the [Frontend API](frontend-api.md) page.
 
-<div class="grid cards" markdown>
+import CardGrid, { Card } from '@site/src/components/CardGrid';
 
--   :material-api: **Frontend API**
-
-    `api.Frontend`, `ParseResult`, `Symbol`, `Ref`, `Workspace`, `ModuleInfo`, `ModuleEntry`, and the `Registry`.
-
-    [:octicons-arrow-right-24: Frontend API](frontend-api.md)
-
-</div>
+<CardGrid>
+  <Card
+    icon="🔌"
+    title="Frontend API"
+    description="`api.Frontend`, `ParseResult`, `Symbol`, `Ref`, `Workspace`, `ModuleInfo`, `ModuleEntry`, and the `Registry`."
+    to="/api-reference/frontend-api"
+  />
+</CardGrid>

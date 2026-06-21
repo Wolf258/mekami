@@ -2,7 +2,7 @@
 
 A SQLite-backed Go code graph for humans and LLM agents, exposed over the [Model Context Protocol](https://modelcontextprotocol.io).
 
-The full documentation is at **<https://wolf258.github.io/mekami/>** (also available in [Español](https://wolf258.github.io/mekami/es/)).
+The full documentation is at **<https://wolf258.github.io/mekami/>**.
 
 - [Installation & quick start](https://wolf258.github.io/mekami/getting-started/installation/)
 - [CLI reference](https://wolf258.github.io/mekami/user-guide/cli/)

@@ -1,3 +1,8 @@
+---
+title: Architecture
+sidebar_label: Overview
+---
+
 # Architecture
 
 Mekami's architecture is layered. The whole binary ships as a single Go module (`github.com/Wolf258/mekami-cli`); the language frontends are external Go modules pulled from the module proxy by `mekami core install`.

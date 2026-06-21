@@ -1,4 +1,7 @@
 site/
+website/node_modules/
+website/.docusaurus/
+website/build/
 .mekami/
 mekami-core-go/
 go.work.sum
