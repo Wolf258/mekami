@@ -1,39 +1,22 @@
----
-title: Development
-sidebar_label: Overview
----
-
 # Development
 
-This section is for people hacking on Mekami itself: the maintainer, contributors adding a new language core, and future you when you've forgotten how the workspace is wired up.
+How to set up a local dev environment, run the test suite, and ship a release.
 
-The user-facing manual is the [user guide](../user-guide/index.md). This section is the "how do I work on this thing" manual.
-
-import CardGrid, { Card } from '@site/src/components/CardGrid';
-
-<CardGrid>
-  <Card
-    icon="🛠️"
-    title="Setup"
-    description="Prerequisites, repo layout, basic commands."
-    to="/development/setup"
-  />
-  <Card
-    icon="🧪"
-    title="Testing"
-    description="Two-tier test architecture, build tags, conventions, helpers."
-    to="/development/testing"
-  />
-  <Card
-    icon="📥"
-    title="Contributing"
-    description="Code style, PR process, the `all_gen` regeneration workflow."
-    to="/development/contributing"
-  />
-  <Card
-    icon="🏷️"
-    title="Releasing"
-    description="Lockstep tagging, version bumping, the AUR bump procedure."
-    to="/development/releasing"
-  />
-</CardGrid>
+<ul class="card-list">
+  <li>
+    <a href="setup/"><span>:hammer_and_wrench:</span> Setup</a>
+    <p>Clone, bootstrap, and produce a local <code>./mekami</code> binary.</p>
+  </li>
+  <li>
+    <a href="testing/"><span>:test_tube:</span> Testing</a>
+    <p>Unit and integration suites, what they cover, and how to run them.</p>
+  </li>
+  <li>
+    <a href="contributing/"><span>:handshake:</span> Contributing</a>
+    <p>Coding style, commit conventions, and the pull-request flow.</p>
+  </li>
+  <li>
+    <a href="releasing/"><span>:rocket:</span> Releasing</a>
+    <p>The release checklist: tag, GitHub release, AUR bump.</p>
+  </li>
+</ul>

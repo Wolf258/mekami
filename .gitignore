@@ -1,7 +1,5 @@
-site/
-website/node_modules/
-website/.docusaurus/
-website/build/
+site/.venv/
+public/
 .mekami/
 go.work.sum
 *.db

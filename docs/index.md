@@ -1,11 +1,8 @@
 ---
 title: Mekami
-slug: /
-hide_title: false
-hide_table_of_contents: true
+hide:
+  - navigation
 ---
-
-import CardGrid, { Card } from '@site/src/components/CardGrid';
 
 # Mekami
 
@@ -27,29 +24,21 @@ Mekami is **not** a code search engine. It indexes symbol names and reference ed
 
 ## Where to go next
 
-<CardGrid>
-  <Card
-    icon="🚀"
-    title="Getting started"
-    description="Install Mekami from the AUR, wire it into your MCP client, and run your first query."
-    to="/getting-started/installation"
-  />
-  <Card
-    icon="🖥️"
-    title="CLI reference"
-    description="Every command Mekami exposes, grouped by purpose: lifecycle, graph reads, daemon controls, service manager, MCP, core management."
-    to="/user-guide/cli"
-  />
-  <Card
-    icon="⚙️"
-    title="How indexing works"
-    description="Walk the data flow from source files to the SQLite graph: fingerprint, AST collector, type resolver, writer."
-    to="/user-guide/how-it-works"
-  />
-  <Card
-    icon="🛠️"
-    title="Extend Mekami"
-    description="Add a new language frontend by implementing the `api.Frontend` interface. Full walkthrough using Rust as an example."
-    to="/extending/writing-a-frontend"
-  />
-</CardGrid>
+<ul class="card-list">
+  <li>
+    <a href="getting-started/installation/"><span>:rocket:</span> Getting started</a>
+    <p>Install Mekami from the AUR, wire it into your MCP client, and run your first query.</p>
+  </li>
+  <li>
+    <a href="user-guide/cli/"><span>:computer:</span> CLI reference</a>
+    <p>Every command Mekami exposes, grouped by purpose: lifecycle, graph reads, daemon controls, service manager, MCP, core management.</p>
+  </li>
+  <li>
+    <a href="user-guide/how-it-works/"><span>:gear:</span> How indexing works</a>
+    <p>Walk the data flow from source files to the SQLite graph: fingerprint, AST collector, type resolver, writer.</p>
+  </li>
+  <li>
+    <a href="extending/writing-a-frontend/"><span>:wrench:</span> Extend Mekami</a>
+    <p>Add a new language frontend by implementing the <code>api.Frontend</code> interface. Full walkthrough using Rust as an example.</p>
+  </li>
+</ul>

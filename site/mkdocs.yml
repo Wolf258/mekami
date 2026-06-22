@@ -1,0 +1,118 @@
+site_name: Mekami
+site_description: A SQLite-backed Go code graph for humans and LLM agents.
+site_url: https://wolf258.github.io/mekami/
+
+docs_dir: ../docs
+site_dir: ../public
+
+use_directory_urls: true
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - search.highlight
+    - search.suggest
+    - search.share
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Quick start: getting-started/quickstart.md
+  - User guide:
+      - user-guide/index.md
+      - CLI reference: user-guide/cli.md
+      - MCP tools: user-guide/mcp-tools.md
+      - Configuration: user-guide/configuration.md
+      - Watch mode: user-guide/watch-mode.md
+      - How indexing works: user-guide/how-it-works.md
+  - Architecture:
+      - architecture/index.md
+      - Modules: architecture/modules.md
+      - Platform: architecture/platform.md
+  - Extending Mekami:
+      - extending/index.md
+      - Frontend contract: extending/frontend-contract.md
+      - Writing a frontend: extending/writing-a-frontend.md
+      - all_gen: extending/all-gen.md
+  - Development:
+      - development/index.md
+      - Setup: development/setup.md
+      - Testing: development/testing.md
+      - Contributing: development/contributing.md
+      - Releasing: development/releasing.md
+  - Build & install:
+      - build/index.md
+      - From source: build/from-source.md
+      - AUR packaging: build/aur.md
+  - API reference:
+      - api-reference/index.md
+      - Frontend API: api-reference/frontend-api.md
+  - Limitations: limitations.md
+  - License: license.md

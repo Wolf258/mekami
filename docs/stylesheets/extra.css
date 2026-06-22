@@ -1,0 +1,71 @@
+/*
+ * Mekami docs — color palette and minor overrides.
+ *
+ * MkDocs Material doesn't expose a `deep purple` shade that matches the
+ * previous Docusaurus `#4f46e5` accent, so we override the primary/light
+ * variables directly. Adjust --md-primary-fg-color and the corresponding
+ * -light/-dark shades together to rebrand.
+ */
+
+:root {
+  --md-primary-fg-color: #4f46e5;
+  --md-primary-fg-color--light: #6255eb;
+  --md-primary-fg-color--dark: #4338ca;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+  --md-accent-fg-color: #4f46e5;
+  --md-accent-fg-color--transparent: rgba(79, 70, 229, 0.1);
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: rgba(255, 255, 255, 0.7);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #6e62ed;
+  --md-primary-fg-color--light: #8b81f1;
+  --md-primary-fg-color--dark: #6255eb;
+  --md-accent-fg-color: #8b81f1;
+  --md-accent-fg-color--transparent: rgba(139, 129, 241, 0.15);
+}
+
+article h1 {
+  margin-bottom: 0.5rem;
+}
+
+/* Card-style link list at the bottom of each section index.
+   Pure prose-friendly styling: no JS, no extra plugin. */
+.md-typeset .card-list {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 2rem;
+}
+
+.md-typeset .card-list li {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.md-typeset .card-list li:hover {
+  border-color: var(--md-accent-fg-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .card-list li:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.md-typeset .card-list li a {
+  font-weight: 600;
+}
+
+.md-typeset .card-list li p {
+  margin: 0.25rem 0 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.85em;
+  line-height: 1.45;
+}

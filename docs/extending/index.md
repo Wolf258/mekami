@@ -1,31 +1,18 @@
----
-title: Extending Mekami
-sidebar_label: Overview
----
-
 # Extending Mekami
 
-Mekami is designed to be extended. The CLI, the daemon, the read-side, and the storage layer are all language-agnostic. Adding support for a new language means implementing the `api.Frontend` interface and registering the indexer.
+Mekami is language-agnostic by design. The Go frontend ships in the box; everything else plugs in through the `api.Frontend` contract.
 
-import CardGrid, { Card } from '@site/src/components/CardGrid';
-
-<CardGrid>
-  <Card
-    icon="📄"
-    title="Frontend contract"
-    description="The `api/v1` package: every type and method your indexer must implement."
-    to="/extending/frontend-contract"
-  />
-  <Card
-    icon="🔨"
-    title="Writing a frontend"
-    description="Walkthrough for adding a new language. Uses `mekami-core-rust` as a worked example."
-    to="/extending/writing-a-frontend"
-  />
-  <Card
-    icon="⚙️"
-    title="The `all_gen` mechanism"
-    description="How the dev vs production blank-import flow works and when to regenerate."
-    to="/extending/all-gen"
-  />
-</CardGrid>
+<ul class="card-list">
+  <li>
+    <a href="frontend-contract/"><span>:handshake:</span> Frontend contract</a>
+    <p>The <code>api.Frontend</code> interface and the data types every frontend must produce.</p>
+  </li>
+  <li>
+    <a href="writing-a-frontend/"><span>:wrench:</span> Writing a frontend</a>
+    <p>Step-by-step walkthrough: build a Rust frontend against the <code>api/v1</code> contract.</p>
+  </li>
+  <li>
+    <a href="all-gen/"><span>:gear:</span> all_gen</a>
+    <p>How the dev builtin set is generated and how the release set is frozen.</p>
+  </li>
+</ul>

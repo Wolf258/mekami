@@ -1,43 +1,26 @@
----
-title: User guide
-sidebar_label: Overview
----
-
 # User guide
 
-This section covers the user-facing surface of Mekami: the CLI, the MCP tools, configuration, the watch daemon, and the indexing pipeline.
+How to use Mekami day to day: from the CLI, from an MCP-aware agent, and as a long-running watcher.
 
-import CardGrid, { Card } from '@site/src/components/CardGrid';
-
-<CardGrid>
-  <Card
-    icon="🖥️"
-    title="CLI reference"
-    description="Every command Mekami exposes."
-    to="/user-guide/cli"
-  />
-  <Card
-    icon="🗄️"
-    title="MCP tools"
-    description="The 17 tools exposed over stdio."
-    to="/user-guide/mcp-tools"
-  />
-  <Card
-    icon="⚙️"
-    title="Configuration"
-    description="The `.mekami/config.json` schema."
-    to="/user-guide/configuration"
-  />
-  <Card
-    icon="👁️"
-    title="Watch mode"
-    description="Supervisor, watchdog, orphan adoption, inotify budget."
-    to="/user-guide/watch-mode"
-  />
-  <Card
-    icon="🕸️"
-    title="How indexing works"
-    description="From source files to the SQLite graph."
-    to="/user-guide/how-it-works"
-  />
-</CardGrid>
+<ul class="card-list">
+  <li>
+    <a href="cli/"><span>:computer:</span> CLI reference</a>
+    <p>Every command Mekami exposes, grouped by purpose.</p>
+  </li>
+  <li>
+    <a href="mcp-tools/"><span>:electric_plug:</span> MCP tools</a>
+    <p>The 12 tools Mekami exposes over the Model Context Protocol.</p>
+  </li>
+  <li>
+    <a href="configuration/"><span>:wrench:</span> Configuration</a>
+    <p>Where config files live, what they contain, and how the daemon reads them.</p>
+  </li>
+  <li>
+    <a href="watch-mode/"><span>:eyes:</span> Watch mode</a>
+    <p>Re-indexing on edit: debouncing, the poller fallback, and the per-user supervisor.</p>
+  </li>
+  <li>
+    <a href="how-it-works/"><span>:gear:</span> How indexing works</a>
+    <p>End-to-end data flow: from a Go source file to a queryable SQLite graph.</p>
+  </li>
+</ul>
