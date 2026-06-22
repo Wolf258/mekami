@@ -15,27 +15,21 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      # mekami-api and mekami-core-go live in their own repos and
-      # are vendored as plain directories in the working copy (not
-      # git submodules). actions/checkout only clones the root
-      # repository, so we materialise the sibling modules here so
-      # the go.work `use` directives and the `replace` directives
-      # in mekami-cli/go.mod / mekami-core-go/go.mod can resolve
-      # them.
-      - name: Materialise sibling modules
-        run: |
-          set -euo pipefail
-          for mod in mekami-api mekami-core-go; do
-            if [ ! -f "$mod/go.mod" ]; then
-              git clone --depth 1 "https://github.com/Wolf258/${mod}.git" "$mod"
-            fi
-          done
+        with:
+          # mekami-api and mekami-core-go are git submodules of this
+          # repository, pinned to concrete tags via .gitmodules.
+          # actions/checkout only fetches submodule contents when
+          # this option is enabled.
+          submodules: recursive
+          fetch-depth: 1
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
           # Cache the workspace module's go.sum so the build
           # doesn't go cold when only source files changed.
-          cache-dependency-path: mekami-cli/go.sum
+          cache-dependency-path: |
+            mekami-cli/go.sum
+            mekami-core-go/go.sum
       # Run from the repo root so the committed go.work is in
       # scope. The whole codebase now lives in a single module
       # (mekami-cli), with mekami-core fused in as internal/core
@@ -55,20 +49,15 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      - name: Materialise sibling modules
-        run: |
-          set -euo pipefail
-          for mod in mekami-api mekami-core-go; do
-            if [ ! -f "$mod/go.mod" ]; then
-              git clone --depth 1 "https://github.com/Wolf258/${mod}.git" "$mod"
-            fi
-          done
+        with:
+          submodules: recursive
+          fetch-depth: 1
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
           cache-dependency-path: |
             mekami-cli/go.sum
-            mekami-core/go.sum
+            mekami-core-go/go.sum
       # ./build.sh is the project's release script; it is
       # POSIX-shell and only meant to be run on Linux/macOS.
       # On Windows we use a plain go build so the matrix stays
