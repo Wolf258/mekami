@@ -1,0 +1,6 @@
+[submodule "mekami-api"]
+	path = mekami-api
+	url = https://github.com/Wolf258/mekami-api.git
+[submodule "mekami-core-go"]
+	path = mekami-core-go
+	url = https://github.com/Wolf258/mekami-core-go.git

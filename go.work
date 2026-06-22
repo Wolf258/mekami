@@ -1,3 +1,7 @@
 go 1.26.3
 
-use ./mekami-cli
+use (
+	./mekami-api
+	./mekami-cli
+	./mekami-core-go
+)
