@@ -50,7 +50,7 @@ func TestMaybeFooter_Indented(t *testing.T) {
 }
 
 func TestHintFor_KnownKinds(t *testing.T) {
-	for _, k := range []ListKind{KindRefs, KindSymbols, KindMatches, KindFiles, KindModules, KindPackages, KindImporters, KindChanges, KindOutgoing, KindSites} {
+	for _, k := range []ListKind{KindRefs, KindSymbols, KindFiles, KindModules, KindPackages, KindImporters, KindChanges, KindOutgoing, KindSites} {
 		if HintFor(k) == "" {
 			t.Fatalf("HintFor(%q) returned empty", k)
 		}

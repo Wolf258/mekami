@@ -8,9 +8,8 @@ package naming
 // The list is split into seven sections below:
 //
 //  1. Lifecycle (top-level): init, serve, build, stats.
-//  2. Graph reads (top-level): find, show, show-body, show-lines,
-//     who-calls, what-calls, trace, find-text, list-*, show-modules,
-//     show-changes, index-status.
+//  2. Graph reads (top-level): show, who-calls, what-calls,
+//     trace, list-*, show-modules, show-changes, index-status.
 //  3. Daemon controls (top-level): start, stop, status, restart,
 //     reload, logs.
 //  4. service subcommand group: install, uninstall, status.
@@ -79,33 +78,19 @@ and ./build.sh.`,
 
 	// ───── 2. Graph reads (top-level) ───────────────────────────
 	{
-		Name:          "find_symbol",
-		Use:           "find <query>",
-		DispatcherKey: "find",
-		Short:         "Find symbols by name (substring match)",
-		Long: `Find symbols by name (substring match). Returns JSON list with
-file:line and signature. Use for finding symbol definitions. Does
-NOT search inside function bodies, comments, or arbitrary text —
-use find-text for that.`,
-		Args: []Arg{
-			{Name: "query", Description: "substring to match against symbol name"},
-		},
-		Flags: []Flag{
-			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
-			{Name: "kind", Type: "string", Default: "", Description: "filter by symbol kind (func|type|method|var|const)"},
-			{Name: "path_prefix", Type: "string", Default: "", Description: "filter by file path prefix"},
-			{Name: "limit", Type: "int", Default: "0", Description: "max results (default 50)"},
-			{Name: "head", Type: "int", Default: "30", Description: "max items in output (0 = unlimited; default 30). Truncated responses report the total count and a hint."},
-		},
-	},
-	{
 		Name:          "get_symbol",
 		Use:           "show <qualified_name>",
 		DispatcherKey: "show",
 		Short:         "Show a symbol's source",
 		Long: `Show a symbol by qualified name. Default output includes the
 file:line header and the source body. Use --body to print only the
-numbered body, or --header to print only the file:line header.`,
+numbered body, or --header to print only the file:line header.
+
+PREFERRED over ` + "`grep`+`read`" + ` when the qualified name is already known:
+one call returns the body with exact file:line, vs two calls and a manual
+line alignment. The --body cap is --max_lines (default 200). For raw
+context around a known location that is not tied to a single symbol,
+use ` + "`sed -n A,Bp`" + ` from a shell.`,
 		Args: []Arg{
 			{Name: "qualified_name", Description: "fully qualified symbol name"},
 		},
@@ -113,43 +98,6 @@ numbered body, or --header to print only the file:line header.`,
 			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
 			{Name: "body", Type: "bool", Default: "false", Description: "print only the numbered body", CLIOnly: true},
 			{Name: "header", Type: "bool", Default: "false", Description: "print only the file:line header", CLIOnly: true},
-			{Name: "max_lines", Type: "int", Default: "200", Description: "max lines to read"},
-		},
-	},
-	{
-		Name:          "show_body",
-		Use:           "show-body <qualified_name>",
-		DispatcherKey: "show-body",
-		Short:         "Show a symbol's source body (numbered lines)",
-		Long: `Show a symbol's source body. Returns formatted text with a
-file:start-end header and numbered lines. Equivalent to ` + "`show --body`" + `.
-
-PREFERRED over ` + "`grep`+`read`" + ` when the qualified name is already known:
-one call returns the body with exact file:line, vs two calls and a manual
-line alignment. Use ` + "`find_symbol`" + ` first to resolve the qualified name if needed.`,
-		Args: []Arg{
-			{Name: "qualified_name", Description: "fully qualified symbol name"},
-		},
-		Flags: []Flag{
-			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
-			{Name: "max_lines", Type: "int", Default: "200", Description: "max lines to read"},
-		},
-	},
-	{
-		Name:          "show_lines",
-		Use:           "show-lines <path> <start_line> [end_line]",
-		DispatcherKey: "show-lines",
-		Short:         "Show a range of lines from a file",
-		Long: `Show a contiguous range of lines from a file. Use for raw
-context around a known location that is not tied to a single
-symbol. Path accepts exact or suffix match.`,
-		Args: []Arg{
-			{Name: "path", Description: "relative file path inside the indexed project"},
-			{Name: "start_line", Description: "1-based first line", Type: "int"},
-			{Name: "end_line", Description: "1-based last line (defaults to start_line + 100)", Type: "int", Optional: true},
-		},
-		Flags: []Flag{
-			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
 			{Name: "max_lines", Type: "int", Default: "200", Description: "max lines to read"},
 		},
 	},
@@ -216,7 +164,7 @@ returns a clear 'symbol not found' error rather than an empty result.
 
 Returns CALL SITES (the file:line where one symbol invokes the next),
 not the definitions of the symbols along the chain. If you need the
-definition of the target, follow up with ` + "`find_symbol`" + ` on the last
+definition of the target, follow up with ` + "`show`" + ` on the last
 qualified name in the path.`,
 		Args: []Arg{
 			{Name: "from", Description: "qualified name of source symbol"},
@@ -252,7 +200,7 @@ CLI; pass 0 for unlimited.`,
 		Short:         "List all symbols in a package",
 		Long: `List all top-level symbols in a package, ordered by file then
 line. Use this to see the public surface of a package once you
-know its package_id.
+know its package_id. Pass --json for a structured list with file:line.
 
 Accepts the canonical Go import path (e.g. ` + "`github.com/Wolf258/mekami-cli/internal/mcp`" + `)
 OR a short suffix/relative path (e.g. ` + "`internal/mcp`" + `, ` + "`mcp`" + `) — the tool
@@ -264,23 +212,6 @@ one call returns every top-level symbol with file:line, vs several
 shell calls that often miss non-exported symbols or misalign line numbers.`,
 		Args: []Arg{
 			{Name: "package_id", Description: "package identifier (Go: import path)"},
-		},
-		Flags: []Flag{
-			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
-			{Name: "kinds", Type: "stringSlice", Default: "", Description: "filter by symbol kinds (func,type,var,const,method)"},
-			{Name: "head", Type: "int", Default: "30", Description: "max items in output (0 = unlimited; default 30). Truncated responses report the total count and a hint."},
-		},
-	},
-	{
-		Name:          "list_package_symbols",
-		Use:           "list-package-symbols <import_path>",
-		DispatcherKey: "list-package-symbols",
-		Short:         "List top-level symbols declared in a package (JSON)",
-		Long: `List the top-level symbols (func, type, var, const, method)
-declared in the package with the given package_id. Returns JSON
-list with file:line.`,
-		Args: []Arg{
-			{Name: "package_id", Description: "package identifier"},
 		},
 		Flags: []Flag{
 			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
@@ -344,28 +275,6 @@ stale.`,
 		},
 	},
 	{
-		Name:          "find_text",
-		Use:           "find-text <pattern>",
-		DispatcherKey: "find-text",
-		Short:         "Server-side regex search across source files",
-		Long: `Server-side regex search over source files. Returns JSON list
-of {path, line, content} matches. Use this for substring search
-inside function bodies, comments, log strings, TODOs, or any
-arbitrary text. The full result is read off disk each call, so
-this is always fresh.`,
-		Args: []Arg{
-			{Name: "pattern", Description: "Go regexp to search for"},
-		},
-		Flags: []Flag{
-			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
-			{Name: "path_prefix", Type: "string", Default: "", Description: "restrict to files whose path starts with this"},
-			{Name: "include_ext", Type: "stringSlice", Default: "", Description: "restrict to these file extensions"},
-			{Name: "max_results", Type: "int", Default: "200", Description: "cap on number of matches returned"},
-			{Name: "context", Type: "int", Default: "2", Description: "context lines before each match (0-5)"},
-			{Name: "head", Type: "int", Default: "30", Description: "max items in output (0 = unlimited; default 30). Truncated responses report the total count and a hint."},
-		},
-	},
-	{
 		Name:          "index_status",
 		Use:           "index-status",
 		DispatcherKey: "index-status",
@@ -377,6 +286,127 @@ before running other tools. If no build has been run yet,
 returns the 'no last_root' error.`,
 		Flags: []Flag{
 			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
+		},
+	},
+	{
+		Name:          "find_symbols",
+		Use:           "find-symbols <query>",
+		DispatcherKey: "find-symbols",
+		Short:         "Find symbols by name substring",
+		Long: `Search symbols by name substring. Matches the symbol's
+declared name (not arbitrary source text), with optional filters
+on kind (func|type|var|const|method) and file path prefix.
+
+PREFERRED over grep when you know a symbol exists but not its
+exact qualified name. For example, "find-symbols NewReader"
+returns every symbol whose name contains "NewReader" across the
+index, with file:line and signature in the result.`,
+		Args: []Arg{
+			{Name: "query", Description: "substring to search in symbol name"},
+		},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
+			{Name: "kind", Type: "string", Default: "", Description: "filter on symbol kind (func|type|var|const|method)"},
+			{Name: "path_prefix", Type: "string", Default: "", Description: "file path prefix filter"},
+			{Name: "limit", Type: "int", Default: "50", Description: "max results (default 50)"},
+			{Name: "head", Type: "int", Default: "30", Description: "max items in output (0 = unlimited; default 30)"},
+		},
+	},
+	{
+		Name:          "circular_imports",
+		Use:           "circular-imports",
+		DispatcherKey: "circular-imports",
+		Short:         "Detect circular import cycles between packages",
+		Long: `Walk the package import graph and report every cycle
+found between packages indexed in this project. Stdlib and
+external dependencies are excluded — only the project's own
+packages participate. Output: one cycle per line, starting with
+the lexicographically smallest package_id for stable diffs.`,
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
+			{Name: "head", Type: "int", Default: "30", Description: "max items in output (0 = unlimited; default 30)"},
+		},
+	},
+	{
+		Name:          "unused",
+		Use:           "unused",
+		DispatcherKey: "unused",
+		Short:         "List exported symbols with no incoming references",
+		Long: `List exported symbols that have no incoming references of
+any kind. Output is a CANDIDATE list for dead code — the entry-
+point filter suppresses main, init, _test.go, fmt.Stringer/error
+implementations, and common stdlib interface methods, but a
+verified who_calls is still required before removal.
+
+PREFERRED over grep -L when you want a structured set of
+candidates with file:line.`,
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
+			{Name: "include_tests", Type: "bool", Default: "false", Description: "include _test.go symbols and Test*/Benchmark*/Example*/Fuzz* names"},
+			{Name: "include_unexported", Type: "bool", Default: "false", Description: "include unexported symbols"},
+			{Name: "limit", Type: "int", Default: "200", Description: "max results (default 200)"},
+			{Name: "head", Type: "int", Default: "30", Description: "max items in output (0 = unlimited; default 30)"},
+		},
+	},
+	{
+		Name:          "type_hierarchy",
+		Use:           "type-hierarchy <type>",
+		DispatcherKey: "type-hierarchy",
+		Short:         "Show members of a type, or types implementing an interface",
+		Long: `Two related views on a Go type:
+
+  --mode=members        Methods and funclits whose parent is <type>.
+  --mode=implementers   Types that NAME <type> in a type-use ref.
+                        Structural implementers (types that satisfy
+                        the interface without naming it) are NOT
+                        reported — Go's interfaces are duck-typed.
+  --mode=all            Both sections in one response.
+
+PREFERRED over go doc -all for "what implements io.Reader in
+this project" — go doc only sees the standard library, not the
+project's own types.`,
+		Args: []Arg{
+			{Name: "type", Description: "qualified name of a type or interface"},
+		},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
+			{Name: "mode", Type: "string", Default: "all", Description: "members|implementers|all"},
+			{Name: "head", Type: "int", Default: "30", Description: "max items in output (0 = unlimited; default 30)"},
+		},
+	},
+	{
+		Name:          "dependents",
+		Use:           "dependents <target>",
+		DispatcherKey: "dependents",
+		Short:         "Tree of symbols/packages/modules affected by a change to <target>",
+		Long: `BFS over the reference graph to answer "what is affected if
+I change X". The target is interpreted according to --level:
+
+  --level=symbol   target is a qualified_name; BFS follows refs
+                   of --ref-kind (default: all kinds). Use
+                   --direction=callees for "what does X touch".
+  --level=package  target is a package_id; BFS follows imports
+                   in the importers direction. "If I move this
+                   package, who breaks?"
+  --level=module   target is a module path; BFS follows modules
+                   that import any of the target's packages.
+
+The result is a tree (not a flat list) so the LLM can see
+distance from the target. Bounded by --max-depth and
+--max-nodes.`,
+		Args: []Arg{
+			{Name: "target", Description: "qualified_name (symbol), package_id (package), or module path (module)"},
+		},
+		Flags: []Flag{
+			{Name: "json", Type: "bool", Default: "false", Description: "emit JSON to stdout", CLIOnly: true},
+			{Name: "level", Type: "string", Default: "symbol", Description: "symbol|package|module"},
+			{Name: "direction", Type: "string", Default: "callers", Description: "callers|callees (symbol level only)"},
+			{Name: "transitive", Type: "bool", Default: "true", Description: "BFS beyond direct callers (default: true)"},
+			{Name: "ref_kind", Type: "string", Default: "", Description: "filter on ref kind (call|type-use|value|import)"},
+			{Name: "path_prefix", Type: "string", Default: "", Description: "filter by file path prefix (symbol level, direction=callees)"},
+			{Name: "max_depth", Type: "int", Default: "4", Description: "BFS depth limit"},
+			{Name: "max_nodes", Type: "int", Default: "500", Description: "node cap (prevents explosion on dense graphs)"},
+			{Name: "head", Type: "int", Default: "30", Description: "max items in output (0 = unlimited; default 30)"},
 		},
 	},
 

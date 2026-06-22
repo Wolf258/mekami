@@ -33,7 +33,7 @@ The store is intentionally narrow: every row is keyed on a `qualified_name` (for
 
 ## What gets *not* indexed
 
-- **Source body text.** `mekami find-text` is a separate filesystem regex search, not part of the graph. See [Limitations](../limitations.md).
+- **Source body text.** The graph does not index file bodies. Use `rg` (ripgrep) or your editor's read tool for substring search inside function bodies, comments, or log strings. See [Limitations](../limitations.md).
 - **Cross-package type resolution.** The local-variable resolver understands function parameters, short variable declarations, plain assignments, `range` clauses, and same-package constructor calls. It does not chase through cross-package calls — that would require `go/types` on the full package, which is out of scope for now.
 - **Test files.** `*_test.go` is excluded by default. If you want them indexed, point `--root` at a directory that does not exclude them or extend the walker's `IsStructuralFiles` / exclude list.
 

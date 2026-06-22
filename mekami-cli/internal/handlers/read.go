@@ -19,7 +19,6 @@ import (
 
 	"github.com/Wolf258/mekami-cli/internal/format"
 	"github.com/Wolf258/mekami-cli/internal/core/diff"
-	"github.com/Wolf258/mekami-cli/internal/core/grep"
 	"github.com/Wolf258/mekami-cli/internal/core/model"
 	"github.com/Wolf258/mekami-cli/internal/core/path"
 	"github.com/Wolf258/mekami-cli/internal/core/queries"
@@ -111,20 +110,6 @@ func applyCapToSlice(items any, n int) any {
 	return v.Slice(0, n).Interface()
 }
 
-// FindSymbol returns the symbol search results.
-func FindSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
-	q := args.GetString("query", "")
-	kind := args.GetString("kind", "")
-	prefix := args.GetString("path_prefix", "")
-	limit := args.GetInt("limit", 200)
-	syms, err := queries.SearchSymbols(ctx, s, q, kind, prefix, limit)
-	if err != nil {
-		return nil, err
-	}
-	cap := capFor(len(syms), args, format.KindSymbols)
-	return AsResult(format.SymbolList(syms, cap), payloadOrString(syms, cap)), nil
-}
-
 // GetSymbol returns a symbol's source. With body=false (the default)
 // it returns the header block. With body=true it returns the
 // numbered body. Callers that want header+body should use the CLI
@@ -155,53 +140,6 @@ func GetSymbol(ctx context.Context, s *store.Store, args naming.ArgMap) (any, er
 	}
 	text := format.SymbolBody(sym, lines, maxLines)
 	return AsResult(text, syms), nil
-}
-
-// ShowBody returns just the numbered body.
-func ShowBody(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
-	qn := args.GetString("qualified_name", "")
-	maxLines := args.GetInt("max_lines", 200)
-	syms, err := queries.SymbolByQName(ctx, s, qn)
-	if err != nil {
-		return nil, err
-	}
-	if len(syms) == 0 {
-		return AsResult(fmt.Sprintf("no symbol found for %q", qn), nil), nil
-	}
-	sym := syms[0]
-	lines, err := queries.SourceSlice(ctx, s, sym.FilePath, sym.StartLine, sym.EndLine, maxLines)
-	if err != nil {
-		return nil, err
-	}
-	text := format.SymbolBody(sym, lines, maxLines)
-	return AsResult(text, syms), nil
-}
-
-// ShowLines returns a range of lines from a file.
-func ShowLines(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
-	path := args.GetString("path", "")
-	startLine := args.GetInt("start_line", 0)
-	endLine := args.GetInt("end_line", 0)
-	maxLines := args.GetInt("max_lines", 200)
-	if startLine < 1 {
-		return AsResult("start_line must be >= 1", nil), nil
-	}
-	end := endLine
-	if end <= 0 {
-		end = startLine + 100
-	}
-	if end < startLine {
-		return AsResult("end_line must be >= start_line", nil), nil
-	}
-	lines, err := queries.SourceSlice(ctx, s, path, startLine, end, maxLines)
-	if err != nil {
-		return nil, err
-	}
-	if len(lines) == 0 {
-		return AsResult(fmt.Sprintf("no content in %s:%d-%d (file may be shorter than the requested range)", path, startLine, end), nil), nil
-	}
-	text := format.FileRange(path, startLine, end, lines, maxLines)
-	return AsResult(text, lines), nil
 }
 
 // WhoCalls returns incoming references to a symbol.
@@ -498,14 +436,6 @@ func isCanonicalPackageID(ctx context.Context, s *store.Store, id string) bool {
 	return n > 0
 }
 
-// ListPackageSymbols returns the top-level symbols declared in
-// a package as JSON. It shares its implementation with
-// ListPackage so resolution, kind filtering, and formatting
-// stay identical across the two tools.
-func ListPackageSymbols(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
-	return ListPackage(ctx, s, args)
-}
-
 // ListImporters returns the packages that import pkgID.
 func ListImporters(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
 	pkgID := args.GetString("package_id", "")
@@ -614,74 +544,6 @@ func take(remaining *int, s []string) []string {
 	return out
 }
 
-// FindText runs a server-side regex search. The default text
-// output is "path:line:content" per match (rg-style); use
-// --json for the structured envelope with total/truncated/pattern.
-// The head cap, when hit, always forces the JSON envelope so the
-// caller can see the total count.
-func FindText(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
-	root, err := queries.LastRoot(ctx, s)
-	if err != nil {
-		return SourceError(err), nil
-	}
-	pattern := args.GetString("pattern", "")
-	prefix := args.GetString("path_prefix", "")
-	exts := args.GetStringSlice("include_ext", nil)
-	maxResults := args.GetInt("max_results", 200)
-	context := args.GetInt("context", 2)
-	res, err := grep.Grep(ctx, grep.Options{
-		Pattern:    pattern,
-		Root:       root,
-		PathPrefix: prefix,
-		IncludeExt: exts,
-		MaxResults: maxResults,
-		Context:    context,
-	})
-	if err != nil {
-		return AsResult("error: "+err.Error(), nil), nil
-	}
-	// find_text already returns total/truncated. Apply the
-	// visible --head cap on top. The resulting Cap reports the
-	// post-truncation counts and folds both truncation sources
-	// into a single hint.
-	total := res.Total
-	matches := res.Matches
-	hint := format.HintFor(format.KindMatches)
-	if res.Truncated {
-		hint = hint + " (or raise --max-results)"
-	}
-	head := args.GetInt("head", defaultHead)
-	if head < 0 {
-		head = 0
-	}
-	cap := format.Cap{Total: total, Shown: len(matches), Truncated: res.Truncated, Hint: hint}
-	if head > 0 && len(matches) > head {
-		matches = matches[:head]
-		cap = format.Cap{Total: total, Shown: head, Truncated: true, Hint: hint}
-	}
-	// The text view is always the rg-style compact list
-	// (TextMatches handles the empty case). The data view is
-	// the reduced envelope: total/truncated/shown + matches
-	// + hint. pattern/root are no longer echoed because the
-	// caller already knows them; the redundant cap block is
-	// gone because the four top-level fields carry the same
-	// information.
-	data := struct {
-		Total     int          `json:"total"`
-		Truncated bool         `json:"truncated"`
-		Shown     int          `json:"shown"`
-		Hint      string       `json:"hint,omitempty"`
-		Matches   []grep.Match `json:"matches"`
-	}{
-		Total:     total,
-		Truncated: cap.Truncated,
-		Shown:     cap.Shown,
-		Hint:      cap.Hint,
-		Matches:   matches,
-	}
-	return AsResult(format.TextMatches(res.Pattern, matches, cap), data), nil
-}
-
 // IndexStatus returns the high-level DB snapshot. Default text
 // output is a key:value per line; --json keeps the structured
 // shape with Watcher status and Counts map.
@@ -698,4 +560,29 @@ func IndexStatus(ctx context.Context, s *store.Store, _ naming.ArgMap) (any, err
 		Counts:      st.Counts,
 	}
 	return AsResult(format.TextIndexStatus(snap), st), nil
+}
+
+// FindSymbols is implemented in find_symbols.go.
+func FindSymbols(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	return findSymbols(ctx, s, args)
+}
+
+// Unused is implemented in unused.go.
+func Unused(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	return unused(ctx, s, args)
+}
+
+// CircularImports is implemented in circular_imports.go.
+func CircularImports(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	return circularImports(ctx, s, args)
+}
+
+// Dependents is implemented in dependents.go.
+func Dependents(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	return dependents(ctx, s, args)
+}
+
+// TypeHierarchy is implemented in type_hierarchy.go.
+func TypeHierarchy(ctx context.Context, s *store.Store, args naming.ArgMap) (any, error) {
+	return typeHierarchy(ctx, s, args)
 }

@@ -138,5 +138,5 @@ Suppose you're adding `mekami-core-rust`.
 
 - **Forgetting to rebuild the binary.** The blank-import manifest is read at compile time. A new `core install` does not take effect until `./build.sh` (or a fresh AUR package) is run.
 - **Returning `nil` for `Symbols` or `Refs`.** The writer indexes them directly; `nil` will panic during the bulk insert. Always return `make([]X, 0)` when the file has no entries.
-- **Non-deterministic qualified names.** The Go frontend derives `qualified_name` from the file's package path + the symbol's local name. If your names are not stable across rebuilds, `find_symbol` will return duplicate hits for the same declaration.
+- **Non-deterministic qualified names.** The Go frontend derives `qualified_name` from the file's package path + the symbol's local name. If your names are not stable across rebuilds, `list_package` will return duplicate hits for the same declaration.
 - **Blocking I/O inside `ParseFile`.** The pipeline runs `runtime.NumCPU()` workers. One slow frontend stalls the whole pool. Parse one file, do not call out to network resources, and let the worker pool's queue absorb the rest.

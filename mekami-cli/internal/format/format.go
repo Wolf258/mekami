@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Wolf258/mekami-cli/internal/core/grep"
 	"github.com/Wolf258/mekami-cli/internal/core/model"
 )
 
@@ -63,7 +62,6 @@ type ListKind string
 const (
 	KindRefs     ListKind = "references"
 	KindSymbols  ListKind = "symbols"
-	KindMatches  ListKind = "matches"
 	KindFiles    ListKind = "files"
 	KindModules  ListKind = "modules"
 	KindPackages ListKind = "packages"
@@ -71,6 +69,8 @@ const (
 	KindChanges  ListKind = "changes"
 	KindSites    ListKind = "sites"
 	KindOutgoing ListKind = "outgoing references"
+	KindCycles   ListKind = "cycles"
+	KindDependents ListKind = "dependents"
 )
 
 // headerNoun returns the singular/plural noun used in the header
@@ -81,8 +81,6 @@ func headerNoun(k ListKind) string {
 		return "reference"
 	case KindSymbols:
 		return "symbol"
-	case KindMatches:
-		return "match"
 	case KindFiles:
 		return "file"
 	case KindModules:
@@ -97,6 +95,10 @@ func headerNoun(k ListKind) string {
 		return "site"
 	case KindOutgoing:
 		return "outgoing reference"
+	case KindCycles:
+		return "cycle"
+	case KindDependents:
+		return "dependent"
 	}
 	return "item"
 }
@@ -111,8 +113,6 @@ func HintFor(k ListKind) string {
 		return "tip: re-run with --ref-kind=<call|type-use|value|import> or --path-prefix=<subdir> to narrow the result."
 	case KindSymbols:
 		return "tip: re-run with --kind=<func|type|var|const> or --path-prefix=<subdir> to narrow the result."
-	case KindMatches:
-		return "tip: re-run with --path-prefix=<subdir> or --include-ext=<go,md> to narrow the result."
 	case KindFiles:
 		return "tip: re-run with --prefix=<subdir> or --include=<go,md> to narrow the result."
 	case KindModules:
@@ -125,6 +125,10 @@ func HintFor(k ListKind) string {
 		return "tip: re-run `mekami build` to refresh the index, then re-query."
 	case KindOutgoing:
 		return "tip: re-run with --path-prefix=<subdir> to narrow the result."
+	case KindCycles:
+		return "tip: cycles are listed in stable order; break the smallest one to make the biggest dent."
+	case KindDependents:
+		return "tip: re-run with --direction=callees, --level=package, or --ref-kind=call to pivot the view."
 	}
 	return ""
 }
@@ -496,27 +500,6 @@ func ModuleList(mods []model.ModuleInfo, cap Cap) string {
 	return b.String()
 }
 
-// TextMatches: compact rg-style rendering of regex matches. One
-// line per match, "path:line:content". Truncation drops the tail
-// before formatting. The total/shown counts are reported in the
-// same MaybeHeader shape the other compact formatters use.
-func TextMatches(pattern string, matches []grep.Match, cap Cap) string {
-	if len(matches) == 0 {
-		return fmt.Sprintf("no matches for %q", pattern)
-	}
-	items := matches
-	if cap.Truncated && cap.Shown < len(items) {
-		items = items[:cap.Shown]
-	}
-	var b strings.Builder
-	b.WriteString(MaybeHeader(KindMatches, cap))
-	for _, m := range items {
-		fmt.Fprintf(&b, "%s:%d:%s\n", m.Path, m.Line, m.Content)
-	}
-	b.WriteString(MaybeFooter(cap))
-	return b.String()
-}
-
 // IndexSnapshot is the text-friendly mirror of the index status
 // payload. The fields are emitted in a stable order so scripts
 // that grep for a key keep working across the JSON/--text switch.
@@ -628,5 +611,112 @@ func TextTrace(edges []model.RefSite, cap Cap) string {
 			e.FromSymbol.FilePath, e.Line, e.Kind)
 	}
 	b.WriteString(MaybeFooter(cap))
+	return b.String()
+}
+
+// Cycles renders a list of import cycles, one per line:
+//
+//	3 cycles detected:
+//	  1. A → B → A
+//	  2. C → D → E → C
+//
+// The numbering and "→ A" trailing repeat make the cycle
+// visually obvious in plain text. The MaybeHeader/MaybeFooter
+// pair keeps the truncation contract consistent with the
+// other list formatters.
+func Cycles(cycles [][]string, cap Cap) string {
+	if len(cycles) == 0 {
+		return "no cycles"
+	}
+	items := cycles
+	if cap.Truncated && cap.Shown < len(items) {
+		items = items[:cap.Shown]
+	}
+	var b strings.Builder
+	b.WriteString(MaybeHeader(KindCycles, cap))
+	fmt.Fprintf(&b, "%d cycle(s) detected\n", len(items))
+	for i, c := range items {
+		fmt.Fprintf(&b, "  %d. ", i+1)
+		for j, pkg := range c {
+			if j > 0 {
+				b.WriteString(" → ")
+			}
+			b.WriteString(pkg)
+		}
+		// Close the cycle visually if the last element is not
+		// already equal to the first.
+		if len(c) > 0 && c[len(c)-1] != c[0] {
+			fmt.Fprintf(&b, " → %s", c[0])
+		}
+		b.WriteByte('\n')
+	}
+	b.WriteString(MaybeFooter(cap))
+	return b.String()
+}
+
+// DependentNode is one node in a DependentTree. It carries the
+// resolved display name (a qualified name, package_id, or
+// module path) plus an optional list of one-line annotations
+// (e.g. the file:line of the call site) so the renderer can
+// show context inline. Children are the BFS-discovered
+// successors.
+type DependentNode struct {
+	Name     string
+	Detail   string
+	Children []*DependentNode
+	Depth    int
+	// Truncated is set on a node whose subtree was cut off
+	// by the BFS cap. The renderer prints a "…" suffix so
+	// the LLM sees the boundary.
+	Truncated bool
+}
+
+// DependentTree renders a dependents tree with two-space
+// indentation per depth level. The root line carries a header
+// so the LLM knows the BFS parameters that produced the tree:
+//
+//	dependents of foo.Bar  (symbol, callers, depth=4, nodes=12)
+//
+// A trailing summary line reports the total node count and
+// truncation state. When the BFS was truncated, the matching
+// MaybeFooter hint is appended.
+func DependentTree(rootLabel string, root *DependentNode, totalNodes int, cap Cap) string {
+	if root == nil {
+		return "no dependents"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "dependents of %s\n", rootLabel)
+	var walk func(n *DependentNode, prefix string, last bool)
+	walk = func(n *DependentNode, prefix string, last bool) {
+		b.WriteString(prefix)
+		connector := "├── "
+		if last {
+			connector = "└── "
+		}
+		b.WriteString(connector)
+		b.WriteString(n.Name)
+		if n.Detail != "" {
+			fmt.Fprintf(&b, "  %s", n.Detail)
+		}
+		if n.Truncated {
+			b.WriteString("  …")
+		}
+		b.WriteByte('\n')
+		next := prefix
+		if last {
+			next += "    "
+		} else {
+			next += "│   "
+		}
+		for i, c := range n.Children {
+			walk(c, next, i == len(n.Children)-1)
+		}
+	}
+	walk(root, "", true)
+	fmt.Fprintf(&b, "(%d node(s) total", totalNodes)
+	if cap.Truncated {
+		fmt.Fprintf(&b, ", truncated: %s", cap.Hint)
+	}
+	b.WriteString(")\n")
 	return b.String()
 }

@@ -13,18 +13,15 @@ import (
 // present and defaulted to "30" so users get a sensible cap
 // without having to pass the flag explicitly.
 var specsWithHead = []string{
-	"find",
 	"who-calls",
 	"what-calls",
 	"list-file",
 	"list-files",
 	"list-package",
-	"list-package-symbols",
 	"list-importers",
 	"list-modules",
 	"show-modules",
 	"show-changes",
-	"find-text",
 }
 
 func TestSpecsHaveHeadFlag(t *testing.T) {

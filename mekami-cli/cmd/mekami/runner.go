@@ -21,11 +21,11 @@ import (
 // (some take ctx, some take flagVals, some take the spec for
 // the graph read).
 //
-// Graph-read commands (find, show, who-calls, ...) are NOT
+// Graph-read commands (show, who-calls, ...) are NOT
 // listed here individually. They are dispatched through
 // runGraphRead, which knows how to handle the full
 // Spec -> handler mapping. Each Spec in that family sets a
-// DispatcherKey like "find" or "show-body"; for those keys
+// DispatcherKey like "show"; for those keys
 // buildRunners returns a wrapper that defers to
 // runGraphRead. This keeps the registry short: the Spec
 // itself carries the (Name, Args, Flags) that runGraphRead
@@ -275,46 +275,10 @@ func decodePositionalArgs(spec *naming.Spec, args []string) (naming.ArgMap, erro
 	return am, nil
 }
 
-// dispatchRead is the CLI-side mirror of mcp.dispatch: each MCP
-// tool name maps to the same handler.
+// dispatchRead is a thin wrapper over handlers.DispatchRead so the
+// CLI side shares a single dispatch table with the MCP server.
 func dispatchRead(ctx context.Context, s *store.Store, name string, args naming.ArgMap) (any, error) {
-	switch name {
-	case "find_symbol":
-		return handlers.FindSymbol(ctx, s, args)
-	case "get_symbol":
-		return handlers.GetSymbol(ctx, s, args)
-	case "show_body":
-		return handlers.ShowBody(ctx, s, args)
-	case "show_lines":
-		return handlers.ShowLines(ctx, s, args)
-	case "who_calls":
-		return handlers.WhoCalls(ctx, s, args)
-	case "what_calls":
-		return handlers.WhatCalls(ctx, s, args)
-	case "list_file":
-		return handlers.ListFile(ctx, s, args)
-	case "trace_calls":
-		return handlers.TraceCalls(ctx, s, args)
-	case "list_files":
-		return handlers.ListFiles(ctx, s, args)
-	case "list_package":
-		return handlers.ListPackage(ctx, s, args)
-	case "list_package_symbols":
-		return handlers.ListPackageSymbols(ctx, s, args)
-	case "list_importers":
-		return handlers.ListImporters(ctx, s, args)
-	case "list_modules":
-		return handlers.ListModules(ctx, s, args)
-	case "show_modules":
-		return handlers.ShowModules(ctx, s, args)
-	case "show_changes":
-		return handlers.ShowChanges(ctx, s, args)
-	case "find_text":
-		return handlers.FindText(ctx, s, args)
-	case "index_status":
-		return handlers.IndexStatus(ctx, s, args)
-	}
-	return nil, fmt.Errorf("unknown read command %q", name)
+	return handlers.DispatchRead(ctx, s, name, args)
 }
 
 // cliError is the error type cobra prints to stderr and exits

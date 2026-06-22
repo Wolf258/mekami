@@ -5,8 +5,8 @@
 // Command groups:
 //
 //	mekami <lifecycle>      init, serve, build, stats
-//	mekami <graph read>     find, show, who-calls, what-calls, trace,
-//	                        list-*, show-*, find-text, index-status
+//	mekami <graph read>     show, who-calls, what-calls, trace,
+//	                        list-*, show-modules, index-status
 //	mekami <daemon>         start, stop, status, restart, reload, logs
 //	mekami service          install, uninstall, status
 //	mekami mcp              install, uninstall, test
@@ -42,7 +42,7 @@ Mekami answers structural questions (who calls X, where is X
 defined, what does Y import, what is the call path between A and
 B) but does not index raw source text. For substring search inside
 function bodies, comments, log strings, or any arbitrary text, use
-` + "`find-text`" + ` or your editor's read tool.`,
+` + "`rg`" + ` (ripgrep) or your editor's read tool.`,
 	Version: Version(),
 }
 

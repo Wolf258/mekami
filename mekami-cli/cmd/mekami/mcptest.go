@@ -70,13 +70,11 @@ func smokeTest(ctx context.Context, dbPath string) error {
 		{"list_modules", map[string]any{}},
 		{"show_modules", map[string]any{}},
 		{"index_status", map[string]any{}},
-		{"find_symbol", map[string]any{"query": discovered, "limit": 3}},
 		{"get_symbol", map[string]any{"qualified_name": discovered}},
 		{"who_calls", map[string]any{"qualified_name": discovered, "ref_kind": "call"}},
 		{"what_calls", map[string]any{"qualified_name": discovered}},
 		{"list_files", map[string]any{"max_depth": 1}},
-		{"show_body", map[string]any{"qualified_name": discovered, "max_lines": 5}},
-		{"find_text", map[string]any{"pattern": "func", "include_ext": []string{"go"}, "max_results": 5}},
+		{"get_symbol", map[string]any{"qualified_name": discovered, "body": true, "max_lines": 5}},
 		{"show_changes", map[string]any{}},
 		{"trace_calls", map[string]any{"from": "this.does.not.Exist", "to": discovered}},
 	}
@@ -86,10 +84,6 @@ func smokeTest(ctx context.Context, dbPath string) error {
 				name string
 				args map[string]any
 			}{"list_file", map[string]any{"path": filePath}},
-			struct {
-				name string
-				args map[string]any
-			}{"show_lines", map[string]any{"path": filePath, "start_line": 1, "end_line": 10}},
 		)
 	}
 
@@ -130,40 +124,66 @@ func truncateForDisplay(s string, maxBytes int) string {
 	return out
 }
 
-func firstSymbolQName(ctx context.Context, session *mcp.ClientSession, query string) (string, error) {
-	res, err := session.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "find_symbol",
-		Arguments: map[string]any{"query": query, "limit": 3},
+// firstSymbolQName discovers a known-qualified-name seed symbol for
+// the smoke test by walking list_modules -> list_package
+// and returning the first func/method found. find_symbol was the
+// previous path but has been removed; this mirrors the same intent
+// (pick a real symbol from the graph) without depending on
+// substring search.
+func firstSymbolQName(ctx context.Context, session *mcp.ClientSession, _ string) (string, error) {
+	modsRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "list_modules",
+		Arguments: map[string]any{"json": true},
 	})
 	if err != nil {
 		return "", err
 	}
-	for _, item := range res.Content {
-		tc, ok := item.(*mcp.TextContent)
-		if !ok {
-			continue
+	var mods []struct {
+		Path string `json:"path"`
+	}
+	if text := firstText(modsRes); text != "" {
+		_ = json.Unmarshal([]byte(text), &mods)
+	}
+	if len(mods) == 0 {
+		return "", nil
+	}
+	pkgsRes, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "list_package",
+		Arguments: map[string]any{"package_id": mods[0].Path, "json": true},
+	})
+	if err != nil {
+		return "", err
+	}
+	var hits []struct {
+		Kind          string `json:"Kind"`
+		QualifiedName string `json:"QualifiedName"`
+	}
+	if text := firstText(pkgsRes); text != "" {
+		_ = json.Unmarshal([]byte(text), &hits)
+	}
+	for _, h := range hits {
+		if (h.Kind == "func" || h.Kind == "method") &&
+			h.QualifiedName != "" && h.QualifiedName != "__imports__" {
+			return h.QualifiedName, nil
 		}
-		var hits []struct {
-			Kind          string `json:"Kind"`
-			QualifiedName string `json:"QualifiedName"`
-		}
-		if err := json.Unmarshal([]byte(tc.Text), &hits); err != nil {
-			continue
-		}
-		for _, h := range hits {
-			if h.Kind == "func" || h.Kind == "method" {
-				if h.QualifiedName != "" && h.QualifiedName != "__imports__" {
-					return h.QualifiedName, nil
-				}
-			}
-		}
-		for _, h := range hits {
-			if h.QualifiedName != "" && h.QualifiedName != "__imports__" {
-				return h.QualifiedName, nil
-			}
+	}
+	for _, h := range hits {
+		if h.QualifiedName != "" && h.QualifiedName != "__imports__" {
+			return h.QualifiedName, nil
 		}
 	}
 	return "", nil
+}
+
+// firstText returns the first text content from a tool result, or
+// "" if the result has no text content.
+func firstText(res *mcp.CallToolResult) string {
+	for _, item := range res.Content {
+		if tc, ok := item.(*mcp.TextContent); ok {
+			return tc.Text
+		}
+	}
+	return ""
 }
 
 func discoverFilePath(ctx context.Context, session *mcp.ClientSession, qn string) string {

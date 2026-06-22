@@ -196,45 +196,13 @@ func errorResult(msg string) *mcp.CallToolResult {
 
 // dispatch routes a tool call to the matching handler. index_status
 // has special handling: the watcher payload is appended when the
-// daemon is reachable.
+// daemon is reachable. All other graph-read tools share a single
+// dispatch table in handlers.DispatchRead.
 func dispatch(ctx context.Context, s *Server, name string, args naming.ArgMap) (any, error) {
-	switch name {
-	case "find_symbol":
-		return handlers.FindSymbol(ctx, s.store, args)
-	case "get_symbol":
-		return handlers.GetSymbol(ctx, s.store, args)
-	case "show_body":
-		return handlers.ShowBody(ctx, s.store, args)
-	case "show_lines":
-		return handlers.ShowLines(ctx, s.store, args)
-	case "who_calls":
-		return handlers.WhoCalls(ctx, s.store, args)
-	case "what_calls":
-		return handlers.WhatCalls(ctx, s.store, args)
-	case "list_file":
-		return handlers.ListFile(ctx, s.store, args)
-	case "trace_calls":
-		return handlers.TraceCalls(ctx, s.store, args)
-	case "list_files":
-		return handlers.ListFiles(ctx, s.store, args)
-	case "list_package":
-		return handlers.ListPackage(ctx, s.store, args)
-	case "list_package_symbols":
-		return handlers.ListPackageSymbols(ctx, s.store, args)
-	case "list_importers":
-		return handlers.ListImporters(ctx, s.store, args)
-	case "list_modules":
-		return handlers.ListModules(ctx, s.store, args)
-	case "show_modules":
-		return handlers.ShowModules(ctx, s.store, args)
-	case "show_changes":
-		return handlers.ShowChanges(ctx, s.store, args)
-	case "find_text":
-		return handlers.FindText(ctx, s.store, args)
-	case "index_status":
+	if name == "index_status" {
 		return indexStatusWithWatcher(ctx, s)
 	}
-	return nil, fmt.Errorf("unknown tool %q", name)
+	return handlers.DispatchRead(ctx, s.store, name, args)
 }
 
 // indexStatusWithWatcher enriches the basic status with watcher

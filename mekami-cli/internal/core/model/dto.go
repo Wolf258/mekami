@@ -36,8 +36,8 @@ type FileNode struct {
 	Children []*FileNode `json:"children,omitempty"`
 }
 
-// SourceLine is one line of a file as returned by show_lines /
-// show_body. Line is 1-based.
+// SourceLine is one line of a file as returned by the source-slice
+// helpers behind show --body. Line is 1-based.
 type SourceLine struct {
 	Line    int    `json:"line"`
 	Content string `json:"content"`

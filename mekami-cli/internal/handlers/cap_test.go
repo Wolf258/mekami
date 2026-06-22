@@ -250,28 +250,6 @@ func TestWhoCalls_NotTruncatedReturnsText(t *testing.T) {
 	}
 }
 
-func TestFindSymbol_Truncated(t *testing.T) {
-	s := newCapStore(t)
-	_, _ = seedSymbolsAndRefs(t, s.Store, 50, 1)
-	// Search for "Caller" which matches all 50 caller symbols (and
-	// not Target which is "Target" — substring match, so the
-	// query string "Caller" is exact enough for the seeded names).
-	out, err := FindSymbol(context.Background(), s.Store, naming.ArgMap{
-		"query": "Caller",
-		"head":  7,
-	})
-	if err != nil {
-		t.Fatalf("FindSymbol: %v", err)
-	}
-	lp, ok := ExtractData(out).(listPayload)
-	if !ok {
-		t.Fatalf("expected listPayload data, got %T", ExtractData(out))
-	}
-	if !lp.Cap.Truncated || lp.Cap.Shown != 7 {
-		t.Fatalf("cap wrong: %+v", lp.Cap)
-	}
-}
-
 func TestListPackage_Truncated(t *testing.T) {
 	s := newCapStore(t)
 	pkgID, _ := seedSymbolsAndRefs(t, s.Store, 50, 1)

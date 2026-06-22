@@ -69,14 +69,13 @@ The build-tag form is the modern `//go:build` (Go 1.17+). We do not keep the leg
 | `mekami-cli/internal/core/store` | yes | — | Upsert / upsert-parent round-trips. |
 | `mekami-cli/internal/core/queries` | yes | — | Stats query helper. |
 | `mekami-cli/internal/core/path` | yes | — | Error-wrap table tests. |
-| `mekami-cli/internal/core/grep` | yes | — | grep matcher. |
 | `mekami-cli/internal/core/ingest_test` | yes (`!integration`) | — | Stub frontend, hermetic. |
 | `mekami-cli/internal/core/integration_test` | — | yes (20) | Real `mekami-core-go`, full build graph, prune, refs, mcp polish, etc. |
 | `mekami-cli/internal/core/scripts/dev-allgen` | yes | — | `all_gen.go` regenerator. |
 | `mekami-cli/cmd/mekami` | yes | yes (`integration && linux`) | resolveLang, resolveInitLangs, mergeIndexers, runInit, runBuild, service commands. |
 | `mekami-cli/internal/config` | yes | — | Default, Load, Validate, OnStartAction, ShouldLog, Indexers. |
 | `mekami-cli/internal/coreinstall` | yes | — | SplitLangRef, IsValidLang, NormalizeVersion, HighestVersion, List, Gen. |
-| `mekami-cli/internal/handlers` | yes | — | Read handlers (show_body, show_changes, list_package, find_symbol, who_calls, trace_calls, find_text). |
+| `mekami-cli/internal/handlers` | yes | — | Read handlers (get_symbol, show_changes, list_package, who_calls, trace_calls). |
 | `mekami-cli/internal/supervisor` | yes | — | supervisor state machine, spawn, registry, ipc, inotify budget, adopt, sentinel. The watchdog lives in `internal/watch` and is exercised by the supervisor tests. |
 | `mekami-cli/internal/watch` | yes | yes (1) | Filter, Coalescer, Translate, poller, paths, plus a real fsnotify integration. |
 | `mekami-cli/tests/internal/install` | yes | — | Black-box MCP client registration. |

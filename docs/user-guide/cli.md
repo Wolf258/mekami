@@ -3,7 +3,7 @@
 Every command is a top-level verb. There are no `query` / `watch` / `mcp` parent groups — discover the surface by reading `mekami --help` once.
 
 :::tip[Unified vocabulary]
-Every CLI command has a matching MCP tool. The CLI uses kebab-case (`who-calls`, `find-text`); MCP uses snake_case (`who_calls`, `find_text`). They are declared once in `internal/naming.Specs` and rendered into both surfaces automatically.
+Every CLI command has a matching MCP tool. The CLI uses kebab-case (`who-calls`); MCP uses snake_case (`who_calls`). They are declared once in `internal/naming.Specs` and rendered into both surfaces automatically.
 :::
 
 ## Global flags
@@ -63,23 +63,23 @@ Every MCP tool is also a CLI command. The matching MCP tool is the snake_case fo
 
 | CLI command | MCP tool | Description |
 | --- | --- | --- |
-| `mekami find <q>` | `find_symbol` | Substring search over symbol names. |
 | `mekami show <qn>` | `get_symbol` | A symbol's definition. Default returns the header; pass `--body` to get the numbered source body. |
-| `mekami show-body <qn>` | `show_body` | A symbol's source body (numbered lines). |
-| `mekami show-lines <path> <start> [end]` | `show_lines` | A range of lines from a file. |
 | `mekami who-calls <qn>` | `who_calls` | Incoming references (callers, type uses, value reads, embeds, imports). |
 | `mekami what-calls <qn>` | `what_calls` | Distinct outgoing references. |
 | `mekami list-file <path>` | `list_file` | Top-level symbols in a file. |
 | `mekami trace <from> <to>` | `trace_calls` | Shortest call path between two symbols. |
 | `mekami list-files [prefix]` | `list_files` | Project file tree. |
 | `mekami list-package <import>` | `list_package` | All symbols in a package. |
-| `mekami list-package-symbols <import>` | `list_package_symbols` | Top-level symbols in a package (JSON). |
 | `mekami list-importers <import>` | `list_importers` | Packages that import the given one. |
 | `mekami list-modules` | `list_modules` | Indexed modules. |
 | `mekami show-modules` | `show_modules` | Per-module package summary. |
 | `mekami show-changes` | `show_changes` | Files added/modified/removed since the last build. |
-| `mekami find-text <pattern>` | `find_text` | Server-side regex search across source files. |
 | `mekami index-status` | `index_status` | Snapshot of the index (`last_root`, `last_build_at`, counts). |
+| `mekami find-symbols <query>` | `find_symbols` | Substring match against declared symbol names. Narrows with `--kind` and `--path-prefix`. |
+| `mekami circular-imports` | `circular_imports` | Cycles in the package import graph (project packages only). |
+| `mekami unused` | `unused` | Exported symbols with no incoming references (dead-code candidates, with entry-point filter). |
+| `mekami type-hierarchy <type>` | `type_hierarchy` | Members of a type, or types that implement an interface (`--mode=members\|implementers\|all`). |
+| `mekami dependents <target>` | `dependents` | Tree of symbols/packages/modules affected by a change to `<target>` (`--level=symbol\|package\|module`). |
 
 All read commands accept `--json` to emit machine-readable JSON to stdout (a non-zero exit code on a real error; `0` with an empty result on a no-hits query).
 

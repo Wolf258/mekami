@@ -2,9 +2,9 @@
 
 > A SQLite-backed code graph for Go projects, queryable from the CLI or by LLM agents over the [Model Context Protocol](https://modelcontextprotocol.io).
 
-Mekami walks a Go project, parses every file with `go/parser`, and persists symbols, definitions, signatures, and reference edges into a single SQLite database. It runs as an MCP server so an agent (Claude, OpenCode, etc.) can ask structural questions — *who calls `X`? where is `X` defined? what's the call path between `A` and `B`?* — instead of grepping the source tree.
+Mekami walks a Go project, parses every file with `go/parser`, and persists symbols, definitions, signatures, and reference edges into a single SQLite database. It runs as an MCP server so an agent (Claude, OpenCode, etc.) can ask structural questions — *who calls `X`? where is `X` defined? what's the call path between `A` and `B`? what's affected if I change `X`? what implements `io.Reader`?* — instead of grepping the source tree.
 
-Mekami is not a code search engine. It indexes symbol names and reference edges only; for substring search inside function bodies, comments, or log strings, use `mekami find-text` (or the MCP `find_text` tool) or your editor's read tool.
+Mekami is not a code search engine. It indexes symbol names and reference edges only; for substring search inside function bodies, comments, or log strings, use `rg` (ripgrep) or your editor's read tool. The narrow exception is `find-symbols`, which matches symbol **declarations** by name substring (a small escape hatch when the exact qualified name is not known).
 
 ## Features
 

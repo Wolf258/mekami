@@ -6,29 +6,28 @@ All tools return text content (JSON or formatted text) over MCP. Full descriptio
 
 | Tool | Purpose |
 | --- | --- |
-| `find_symbol` | Substring search over symbol names. |
-| `get_symbol` | A symbol's definition (formatted text, human-readable). |
-| `show_body` | A symbol's source body (numbered lines). |
-| `show_lines` | An arbitrary line range from a file. |
+| `get_symbol` | A symbol's definition (formatted text by default; `--body` returns the numbered source). |
 | `who_calls` | Incoming references (call, type-use, value, field, embed, import). |
 | `what_calls` | Distinct outgoing references. |
 | `list_file` | Top-level symbols in a file. |
 | `list_package` | All symbols in a package. |
 | `show_modules` | High-level summary of indexed modules and their packages. |
 | `list_modules` | Indexed modules (JSON). |
-| `list_package_symbols` | Top-level symbols declared in a given package. |
 | `list_importers` | Packages that import a given package. |
 | `list_files` | Project file tree from the indexed snapshot. |
 | `trace_calls` | BFS to find a call path between two qualified names. |
 | `show_changes` | Files added/modified/removed since the last `mekami build`. |
-| `find_text` | Server-side regex search across source files. |
 | `index_status` | Snapshot of the index (`last_root`, `last_build_at`, counts). |
+| `find_symbols` | Substring match against declared symbol names (with `--kind` and `--path-prefix` filters). |
+| `circular_imports` | Cycles in the package import graph (project packages only). |
+| `unused` | Exported symbols with no incoming references (dead-code candidates; entry-point filter applied). |
+| `type_hierarchy` | Members of a type, or types that name an interface in a `type-use` ref. |
+| `dependents` | Tree of symbols/packages/modules affected by a change to a target. |
 
 ## Common filters
 
 Several tools accept filters:
 
-- `kind` (`func`, `type`, `method`, `var`, `const`) on `find_symbol` — filters symbol kinds.
 - `ref_kind` (`call`, `type-use`, `value`, `field`, `embed`, `import`) on `who_calls` — filters reference edge kinds.
 - `path_prefix` on most listing tools — restricts to files whose path starts with the given prefix.
 
